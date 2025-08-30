@@ -3,6 +3,10 @@ import math
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill
 
+def to_utc(t, tz_offset):
+    """Convert local time to UTC."""
+    return t - timedelta(hours=tz_offset)
+
 def main():
 
     tz1 = 1
