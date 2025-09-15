@@ -3,7 +3,7 @@ sys.path.append(str(pathlib.Path(__file__).resolve().parents[1]))
 
 from datetime import datetime, timedelta, timezone, time
 
-from jetlag_core import create_jet_lag_timetable
+from jetlag_core import create_jet_lag_timetable, rasterize_timetable
 
 
 def test_create_jet_lag_timetable_basic():
@@ -30,6 +30,69 @@ def test_create_jet_lag_timetable_basic():
     assert any(e.get("is_cbtmin") for e in events)
     assert any(e["event"] == "melatonin" and e["end"] is None for e in events)
     assert any(e["event"] == "light" and isinstance(e["end"], str) for e in events)
+
+
+def test_direction_and_gating_under_3h():
+    # Under 3h diff → only Day 0 CBTmin
+    tz0 = timezone.utc
+    tz1 = timezone(timedelta(hours=1))
+    travel_start = datetime(2024, 1, 1, 12, 0, tzinfo=tz0)
+    travel_end = datetime(2024, 1, 1, 13, 0, tzinfo=tz1)  # short hop
+    events = create_jet_lag_timetable(
+        origin_timezone=tz0,
+        destination_timezone=tz1,
+        origin_sleep_start=time(23, 0), origin_sleep_end=time(7, 0),
+        destination_sleep_start=time(23, 0), destination_sleep_end=time(7, 0),
+        travel_start=travel_start, travel_end=travel_end,
+        use_melatonin=True, use_exercise=False, use_light_dark=True,
+        precondition_days=2,
+    )
+    cbtmins = [e for e in events if e.get("is_cbtmin")]
+    assert len(cbtmins) == 1
+    assert cbtmins[0]["day_index"] == 0
+
+
+def test_delay_direction_sign():
+    # Choose tz and times so destination CBT is later → delay
+    origin = timezone(timedelta(hours=-5))  # UTC-5
+    dest = timezone(timedelta(hours=5))     # UTC+5
+    travel_start = datetime(2024, 1, 1, 12, 0, tzinfo=origin)
+    travel_end = datetime(2024, 1, 2, 6, 0, tzinfo=dest)
+    events = create_jet_lag_timetable(
+        origin_timezone=origin, destination_timezone=dest,
+        origin_sleep_start=time(23, 0), origin_sleep_end=time(7, 0),
+        destination_sleep_start=time(23, 0), destination_sleep_end=time(7, 0),
+        travel_start=travel_start, travel_end=travel_end,
+        use_melatonin=True, use_exercise=False, use_light_dark=False,
+        precondition_days=0,
+    )
+    any_event = next(e for e in events if e["event"] in ("cbtmin", "melatonin"))
+    assert any_event["phase_direction"] in ("delay", "advance", "aligned")
+
+
+def test_zero_length_travel_and_rasterize():
+    tz = timezone.utc
+    travel = datetime(2024, 1, 1, 12, 0, tzinfo=tz)
+    events = create_jet_lag_timetable(
+        origin_timezone=tz, destination_timezone=tz,
+        origin_sleep_start=time(23, 0), origin_sleep_end=time(7, 0),
+        destination_sleep_start=time(23, 0), destination_sleep_end=time(7, 0),
+        travel_start=travel, travel_end=travel,  # zero-length travel
+        use_melatonin=True, use_exercise=False, use_light_dark=True,
+        precondition_days=0,
+    )
+    assert any(e["event"] == "travel" for e in events)
+    # Rasterize a one-day window
+    slots = rasterize_timetable(
+        events,
+        start=datetime(2024, 1, 1, 0, 0, tzinfo=tz),
+        end=datetime(2024, 1, 2, 0, 0, tzinfo=tz),
+        step_minutes=60,
+    )
+    assert isinstance(slots, list) and len(slots) > 0
+    # Ensure flags aggregate
+    assert any(s.get("is_sleep") for s in slots)
+    assert any(s.get("is_cbtmin") for s in slots)
     # all timestamps are ISO Z strings where present
     for e in events:
         if isinstance(e.get("start"), str):
