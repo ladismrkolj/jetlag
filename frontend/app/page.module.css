@@ -1,0 +1,33 @@
+.main{max-width:1100px;margin:0 auto;padding:24px;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";color:#111}
+.title{font-weight:600;letter-spacing:0.2px;margin-bottom:16px}
+.form{display:flex;flex-direction:column;gap:12px;background:#fafafa;border:1px solid #eee;border-radius:12px;padding:16px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.row label{font-size:12px;color:#444;margin-right:6px}
+.row input[type="number"],.row input[type="time"],.row input[type="datetime-local"]{padding:6px 8px;border:1px solid #ddd;border-radius:8px;background:#fff}
+.actions{display:flex;gap:8px;justify-content:flex-end}
+.actions button{background:#111;color:#fff;border:0;padding:10px 14px;border-radius:10px;cursor:pointer}
+.actions button:disabled{opacity:.6;cursor:default}
+.error{color:#b00020}
+.gridWrap{margin-top:24px}
+.legend{display:flex;gap:12px;align-items:center;margin-bottom:8px}
+.legendBox{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#333}
+.legendBox::before{content:"";display:inline-block;width:14px;height:14px;border-radius:4px;background:#ddd;border:1px solid #ccc}
+.legend .sleep::before{background:#1f2937}
+.legend .light::before{background:#fef08a}
+.legend .dark::before{background:#d8b4fe}
+.legend .exercise::before{background:#86efac}
+.legend .melatonin::before{background:#fca5a5}
+.legend .cbtmin::before{background:#60a5fa}
+.legend .travel::before{background:#93c5fd}
+.grid{display:grid;grid-template-columns:140px repeat(48,1fr);gap:2px;align-items:stretch}
+.headerCell{font-size:10px;color:#666;text-align:center}
+.headerHour{font-size:11px;color:#374151;text-align:center;font-weight:600}
+.rowLabel{position:sticky;left:0;background:#fff;font-size:12px;display:flex;align-items:center;justify-content:flex-start;padding:0 6px;border-right:1px solid #eee}
+.cell{height:18px;background:#fff;border:1px solid #eee;position:relative}
+.sleep{background:#111;color:#fff;border-color:#111}
+.light{outline:2px solid #facc15}
+.dark{outline:2px dashed #a855f7}
+.exercise{outline:2px solid #22c55e}
+.travel{background:#dbeafe}
+.dot{position:absolute;top:2px;right:2px;width:8px;height:8px;background:#ef4444;border-radius:50%}
+.cbtDot{position:absolute;bottom:2px;right:2px;width:8px;height:8px;background:#3b82f6;border-radius:2px}
