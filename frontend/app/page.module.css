@@ -20,6 +20,8 @@
 .legend .cbtmin::before{background:#60a5fa}
 .legend .travel::before{background:#93c5fd}
 .grid{display:grid;grid-template-columns:140px repeat(48,1fr);gap:2px;align-items:stretch}
+.legendRow{display:grid;grid-template-columns:140px repeat(48,1fr);gap:2px;align-items:center;margin-bottom:6px}
+.legendLabel{font-size:11px;color:#374151;font-weight:600;display:flex;align-items:center;justify-content:flex-start;padding:0 6px}
 .headerCell{font-size:10px;color:#666;text-align:center}
 .headerHour{font-size:11px;color:#374151;text-align:center;font-weight:600}
 .rowLabel{position:sticky;left:0;background:#fff;font-size:12px;display:flex;align-items:center;justify-content:flex-start;padding:0 6px;border-right:1px solid #eee}

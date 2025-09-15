@@ -113,16 +113,32 @@ export default function Page() {
 
       {error && <p className={styles.error}>{error}</p>}
 
-      {events && <TimetableGrid events={events} />}
-      {debugSlots && <DebugSlotsGrid slots={debugSlots} />}
+      {events && <TimetableGrid events={events} originOffset={originOffset} destOffset={destOffset} />}
+      {debugSlots && <DebugSlotsGrid slots={debugSlots} originOffset={originOffset} destOffset={destOffset} />}
     </main>
   )
 }
 
-function TimetableGrid({ events }: { events: any[] }) {
+function hourLabels(offset: number) {
+  return Array.from({ length: 24 }, (_, h) => ((h + offset + 24) % 24))
+}
+
+function TimetableGrid({ events, originOffset, destOffset }: { events: any[], originOffset: number, destOffset: number }) {
   // Group events by UTC date for display; 48 columns (30-minute slots)
   const days = useMemo(() => groupEventsByUTCDate(events), [events])
-  const hours = Array.from({ length: 24 }, (_, i) => i)
+  const hoursUTC = Array.from({ length: 24 }, (_, i) => i)
+  const hoursOrigin = hourLabels(originOffset)
+  const hoursDest = hourLabels(destOffset)
+
+  const lastDay0Date = useMemo(() => {
+    const dates: string[] = []
+    for (const e of events) {
+      if (e.day_index === 0 && typeof e.start === 'string') {
+        dates.push(String(e.start).slice(0,10))
+      }
+    }
+    return dates.length ? dates.sort().at(-1)! : null
+  }, [events])
 
   return (
     <div className={styles.gridWrap}>
@@ -135,22 +151,48 @@ function TimetableGrid({ events }: { events: any[] }) {
         <span className={styles.legendBox + ' ' + styles.cbtmin}>CBTmin</span>
         <span className={styles.legendBox + ' ' + styles.travel}>Travel</span>
       </div>
-      <div className={styles.grid}>
-        <div className={styles.headerCell}></div>
-        {hours.map(h => (
-          <div key={h} className={styles.headerHour} style={{ gridColumn: 'span 2' }}>
+      {/* Top legend: Origin local time */}
+      <div className={styles.legendRow}>
+        <div className={styles.legendLabel}>Origin (UTC{originOffset >= 0 ? '+' : ''}{originOffset})</div>
+        {hoursOrigin.map(h => (
+          <div key={'o'+h} className={styles.headerHour} style={{ gridColumn: 'span 2' }}>
             {`${h.toString().padStart(2,'0')}:00`}
           </div>
         ))}
+      </div>
+
+      <div className={styles.grid}>
         {days.map((d) => (
-          <Row key={d.date} day={d} />
+          <>
+            <Row key={d.date} day={d} />
+            {lastDay0Date === d.date && (
+              <>
+                <div className={styles.legendLabel}>Destination (UTC{destOffset >= 0 ? '+' : ''}{destOffset})</div>
+                {hoursDest.map(h => (
+                  <div key={'d'+d.date+':'+h} className={styles.headerHour} style={{ gridColumn: 'span 2' }}>
+                    {`${h.toString().padStart(2,'0')}:00`}
+                  </div>
+                ))}
+              </>
+            )}
+          </>
+        ))}
+      </div>
+
+      {/* Bottom legend: UTC */}
+      <div className={styles.legendRow}>
+        <div className={styles.legendLabel}>UTC</div>
+        {hoursUTC.map(h => (
+          <div key={'u'+h} className={styles.headerHour} style={{ gridColumn: 'span 2' }}>
+            {`${h.toString().padStart(2,'0')}:00`}
+          </div>
         ))}
       </div>
     </div>
   )
 }
 
-function DebugSlotsGrid({ slots }: { slots: any[] }) {
+function DebugSlotsGrid({ slots, originOffset, destOffset }: { slots: any[], originOffset: number, destOffset: number }) {
   // Group provided slots by UTC date
   const days = useMemo(() => {
     const byDate = new Map<string, any[]>()
@@ -166,7 +208,7 @@ function DebugSlotsGrid({ slots }: { slots: any[] }) {
     })
   }, [slots])
 
-  const hours = Array.from({ length: 24 }, (_, i) => i)
+  const hoursUTC = Array.from({ length: 24 }, (_, i) => i)
   return (
     <div className={styles.gridWrap}>
       <div className={styles.legend}>
