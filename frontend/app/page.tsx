@@ -21,6 +21,11 @@ export default function Page() {
   const [debugSlots, setDebugSlots] = useState<any[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [reportOpen, setReportOpen] = useState(false)
+  const [reportComment, setReportComment] = useState('')
+  const [reportSending, setReportSending] = useState(false)
+  const [reportMessage, setReportMessage] = useState<string | null>(null)
+  const [includeScreenshot, setIncludeScreenshot] = useState(true)
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -115,6 +120,79 @@ export default function Page() {
 
       {events && <TimetableGrid events={events} originOffset={originOffset} destOffset={destOffset} />}
       {debugSlots && <DebugSlotsGrid slots={debugSlots} originOffset={originOffset} destOffset={destOffset} />}
+
+      <div className={styles.footer}>
+        <button className={styles.reportBtn} type="button" onClick={() => { setReportOpen(true); setReportMessage(null) }}>
+          Report a problem or suggestion
+        </button>
+      </div>
+
+      {reportOpen && (
+        <div className={styles.modalBackdrop} data-html2canvas-ignore onClick={() => !reportSending && setReportOpen(false)}>
+          <div className={styles.modal} data-html2canvas-ignore onClick={e => e.stopPropagation()}>
+            <h3>Send Feedback</h3>
+            <p className={styles.muted}>Optional: describe the issue or suggestion. We’ll include anonymous debug info.</p>
+            <textarea placeholder="Your message (optional)" value={reportComment} onChange={e => setReportComment(e.target.value)} />
+            <div className={styles.row}>
+              <label><input type="checkbox" checked={includeScreenshot} onChange={e => setIncludeScreenshot(e.target.checked)} /> Include page screenshot</label>
+            </div>
+            <div className={styles.row}>
+              <button className={styles.reportBtn} type="button" disabled={reportSending} onClick={async () => {
+                setReportSending(true)
+                setReportMessage(null)
+                try {
+                  let screenshot: string | null = null
+                  if (includeScreenshot && typeof window !== 'undefined') {
+                    try {
+                      const html2canvas = (await import('html2canvas')).default
+                      const canvas = await html2canvas(document.body, { logging: false, useCORS: true, scale: 1 })
+                      screenshot = canvas.toDataURL('image/jpeg', 0.85)
+                    } catch (e) {
+                      console.warn('screenshot capture failed', e)
+                    }
+                  }
+                  const payload = {
+                    comment: reportComment,
+                    inputs: {
+                      originOffset, destOffset, originSleepStart, originSleepEnd, destSleepStart, destSleepEnd,
+                      travelStart, travelEnd, useMelatonin, useLightDark, useExercise, preDays
+                    },
+                    data: events ?? debugSlots ?? null,
+                    userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+                    url: typeof location !== 'undefined' ? location.href : 'unknown',
+                    screenshot,
+                  }
+                  // attach full rasterized slots
+                  try {
+                    let slotsPayload: any[] = []
+                    if (Array.isArray(debugSlots) && debugSlots.length) {
+                      slotsPayload = debugSlots
+                    } else if (Array.isArray(events) && events.length) {
+                      const days = groupEventsByUTCDate(events)
+                      slotsPayload = ([] as any[]).concat(...days.map(d => d.slots))
+                    }
+                    ;(payload as any).slots = slotsPayload
+                  } catch {}
+                  const res = await fetch('/api/report', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+                  const body = await res.json().catch(() => ({}))
+                  if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`)
+                  setReportMessage('Thanks! Your feedback was sent.')
+                  setReportComment('')
+                } catch (e) {
+                  const msg = (e && typeof e === 'object' && 'message' in e) ? (e as any).message : 'unknown error'
+                  setReportMessage(`Could not send: ${msg}`)
+                } finally {
+                  setReportSending(false)
+                }
+              }}>
+                {reportSending ? 'Sending…' : 'Send'}
+              </button>
+              <button className={styles.reportBtn} type="button" onClick={() => setReportOpen(false)} disabled={reportSending}>Close</button>
+            </div>
+            {reportMessage && <p className={styles.muted}>{reportMessage}</p>}
+          </div>
+        </div>
+      )}
     </main>
   )
 }
