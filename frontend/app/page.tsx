@@ -1,5 +1,5 @@
 "use client"
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import styles from './page.module.css'
 
 type TzOffset = number // in hours, e.g. -5 for New York winter
@@ -23,9 +23,25 @@ export default function Page() {
   const [error, setError] = useState<string | null>(null)
   const [reportOpen, setReportOpen] = useState(false)
   const [reportComment, setReportComment] = useState('')
+  const [reportEmail, setReportEmail] = useState('')
   const [reportSending, setReportSending] = useState(false)
   const [reportMessage, setReportMessage] = useState<string | null>(null)
   const [includeScreenshot, setIncludeScreenshot] = useState(true)
+  const [betaOpen, setBetaOpen] = useState(false)
+  const [quickOpen, setQuickOpen] = useState(false)
+  const [quickRating, setQuickRating] = useState<string | null>(null)
+  const [quickName, setQuickName] = useState('')
+  const [quickComment, setQuickComment] = useState('')
+  const [quickEmail, setQuickEmail] = useState('')
+  const [quickSending, setQuickSending] = useState(false)
+  const [quickMessage, setQuickMessage] = useState<string | null>(null)
+  const [nameSuggestion, setNameSuggestion] = useState('')
+  const [betaEmail, setBetaEmail] = useState('')
+
+  useEffect(() => {
+    // For beta: show on every reload for now
+    setBetaOpen(true)
+  }, [])
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -121,6 +137,14 @@ export default function Page() {
       {events && <TimetableGrid events={events} originOffset={originOffset} destOffset={destOffset} />}
       {debugSlots && <DebugSlotsGrid slots={debugSlots} originOffset={originOffset} destOffset={destOffset} />}
 
+      {(events || debugSlots) && (
+        <div className={styles.emojiBand}>
+          <button className={styles.emojiButton} aria-label="Love it" onClick={() => { setQuickRating('heart'); setQuickOpen(true); setQuickMessage(null) }}>❤️</button>
+          <button className={styles.emojiButton} aria-label="Great" onClick={() => { setQuickRating('party'); setQuickOpen(true); setQuickMessage(null) }}>🎉</button>
+          <button className={styles.emojiButton} aria-label="Not good" onClick={() => { setQuickRating('down'); setQuickOpen(true); setQuickMessage(null) }}>👎</button>
+        </div>
+      )}
+
       <div className={styles.footer}>
         <button className={styles.reportBtn} type="button" onClick={() => { setReportOpen(true); setReportMessage(null) }}>
           Report a problem or suggestion
@@ -135,6 +159,14 @@ export default function Page() {
             <textarea placeholder="Your message (optional)" value={reportComment} onChange={e => setReportComment(e.target.value)} />
             <div className={styles.row}>
               <label><input type="checkbox" checked={includeScreenshot} onChange={e => setIncludeScreenshot(e.target.checked)} /> Include page screenshot</label>
+            </div>
+            <div className={styles.row}>
+              <input
+                placeholder="Email for updates (optional)"
+                value={reportEmail}
+                onChange={e => setReportEmail(e.target.value)}
+                style={{flex:1,padding:'8px',border:'1px solid #e5e7eb',borderRadius:'8px'}}
+              />
             </div>
             <div className={styles.row}>
               <button className={styles.reportBtn} type="button" disabled={reportSending} onClick={async () => {
@@ -161,6 +193,7 @@ export default function Page() {
                     userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
                     url: typeof location !== 'undefined' ? location.href : 'unknown',
                     screenshot,
+                    email: (reportEmail || '').trim() || null,
                   }
                   // attach full rasterized slots
                   try {
@@ -185,11 +218,67 @@ export default function Page() {
                   setReportSending(false)
                 }
               }}>
-                {reportSending ? 'Sending…' : 'Send'}
+                {reportSending ? 'Sending…' : ((reportEmail || '').trim() ? 'Send & Subscribe' : 'Send')}
               </button>
               <button className={styles.reportBtn} type="button" onClick={() => setReportOpen(false)} disabled={reportSending}>Close</button>
             </div>
             {reportMessage && <p className={styles.muted}>{reportMessage}</p>}
+          </div>
+        </div>
+      )}
+
+      {betaOpen && (
+        <div className={styles.modalBackdrop} data-html2canvas-ignore onClick={() => setBetaOpen(false)}>
+          <div className={styles.modal} data-html2canvas-ignore onClick={e => e.stopPropagation()}>
+            <h3>Beta Notice</h3>
+            <p className={styles.muted}>This tool is in beta. Results are experimental and should not be used for medical decisions.</p>
+            <p className={styles.muted}>After you try the tool, you can share feedback or suggest a name using the feedback button.</p>
+            <div className={styles.row}>
+              <input placeholder="Email for updates (optional)" value={betaEmail} onChange={e=>setBetaEmail(e.target.value)} style={{flex:1,padding:'8px',border:'1px solid #e5e7eb',borderRadius:'8px'}} />
+            </div>
+            <div className={styles.row}>
+              <button className={styles.reportBtn} type="button" onClick={async ()=>{ const email=(betaEmail||'').trim(); if(email){ try{ await fetch('/api/report',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'subscribe',email,source:'beta_modal',url: typeof location!=='undefined'?location.href:'unknown'})}) }catch{} } setBetaOpen(false) }}>{(betaEmail||'').trim() ? 'I understand & Subscribe' : 'I understand'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {quickOpen && (
+        <div className={styles.modalBackdrop} data-html2canvas-ignore onClick={() => !quickSending && setQuickOpen(false)}>
+          <div className={styles.modal} data-html2canvas-ignore onClick={e => e.stopPropagation()}>
+            <h3>Quick Feedback</h3>
+            <p className={styles.muted}>How did it go? Your selected reaction: {quickRating === 'heart' ? '❤️ Love it' : quickRating === 'party' ? '🎉 Great' : '👎 Not good'}</p>
+            <textarea placeholder="What worked? What didn’t? (optional)" value={quickComment} onChange={e => setQuickComment(e.target.value)} />
+            <div className={styles.row}>
+              <input placeholder="Suggest a name for the site (optional)" value={quickName} onChange={e=>setQuickName(e.target.value)} style={{flex:1,padding:'8px',border:'1px solid #e5e7eb',borderRadius:'8px'}} />
+            </div>
+            <div className={styles.row}>
+              <input placeholder="Email for updates (optional)" value={quickEmail} onChange={e=>setQuickEmail(e.target.value)} style={{flex:1,padding:'8px',border:'1px solid #e5e7eb',borderRadius:'8px'}} />
+            </div>
+            <div className={styles.row}>
+              <button className={styles.reportBtn} type="button" disabled={quickSending} onClick={async ()=>{
+                setQuickSending(true); setQuickMessage(null)
+                try{
+                  const payload:any={
+                    type:'quick_feedback',
+                    rating:quickRating,
+                    comment:quickComment || null,
+                    nameSuggestion:quickName || null,
+                    email: (quickEmail || '').trim() || null,
+                    inputs:{ originOffset, destOffset, preDays },
+                    url: typeof location!=='undefined'?location.href:'unknown',
+                  }
+                  const res=await fetch('/api/report',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+                  const body=await res.json().catch(()=>({}))
+                  if(!res.ok) throw new Error(body.error||`HTTP ${res.status}`)
+                  setQuickMessage('Thanks for the feedback!')
+                  setQuickName(''); setQuickComment(''); setQuickEmail('')
+                }catch(e:any){ setQuickMessage(e?.message||'Failed to send') }
+                finally{ setQuickSending(false) }
+              }}>{quickSending?'Sending…':((quickEmail||'').trim()?'Send & Subscribe':'Send')}</button>
+              <button className={styles.reportBtn} type="button" onClick={()=>setQuickOpen(false)} disabled={quickSending}>Close</button>
+            </div>
+            {quickMessage && <p className={styles.muted}>{quickMessage}</p>}
           </div>
         </div>
       )}
