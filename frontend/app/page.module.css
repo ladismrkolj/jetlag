@@ -10,15 +10,15 @@
 .error{color:#b00020}
 .gridWrap{margin-top:24px}
 .legend{display:flex;gap:12px;align-items:center;margin-bottom:8px}
-.legendBox{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#333}
-.legendBox::before{content:"";display:inline-block;width:14px;height:14px;border-radius:4px;background:#ddd;border:1px solid #ccc}
-.legend .sleep::before{background:#1f2937}
+.legendBox{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#111;background:transparent}
+.legendBox::before{content:"";display:inline-block;width:14px;height:14px;border-radius:4px;background:#ddd;border:1px solid #ccc;text-align:center;line-height:14px;font-size:10px;font-weight:700;color:#111}
+.legend .sleep::before{background:#d1d5db}
 .legend .light::before{background:#fef08a}
-.legend .dark::before{background:#d8b4fe}
-.legend .exercise::before{background:#86efac}
-.legend .melatonin::before{background:#fca5a5}
-.legend .cbtmin::before{background:#60a5fa}
-.legend .travel::before{background:#93c5fd}
+.legend .dark::before{background:#000000}
+.legend .exercise::before{background:transparent;border:2px solid #22c55e}
+.legend .melatonin::before{content:"M";background:#ffffffcc;border:1px solid #ef4444;color:#b91c1c;border-radius:3px}
+.legend .cbtmin::before{content:"";background:#ef4444;border-radius:50%;width:8px;height:8px;border:0}
+.legend .travel::before{content:"t";background:#ffffffcc;border:1px solid #9ca3af;color:#111827;border-radius:3px}
 .grid{display:grid;grid-template-columns:140px repeat(48,1fr);gap:2px;align-items:stretch}
 .legendRow{display:grid;grid-template-columns:140px repeat(48,1fr);gap:2px;align-items:center;margin-bottom:6px}
 .legendLabel{font-size:11px;color:#374151;font-weight:600;display:flex;align-items:center;justify-content:flex-start;padding:0 6px}
@@ -26,10 +26,11 @@
 .headerHour{font-size:11px;color:#374151;text-align:center;font-weight:600}
 .rowLabel{position:sticky;left:0;background:#fff;font-size:12px;display:flex;align-items:center;justify-content:flex-start;padding:0 6px;border-right:1px solid #eee}
 .cell{height:18px;background:#fff;border:1px solid #eee;position:relative}
-.sleep{background:#111;color:#fff;border-color:#111}
-.light{outline:2px solid #facc15}
-.dark{outline:2px dashed #a855f7}
-.exercise{outline:2px solid #22c55e}
-.travel{background:#dbeafe}
-.dot{position:absolute;top:2px;right:2px;width:8px;height:8px;background:#ef4444;border-radius:50%}
-.cbtDot{position:absolute;bottom:2px;right:2px;width:8px;height:8px;background:#3b82f6;border-radius:2px}
+.cell.sleep{background:#9ca3af;border-color:#9ca3af}
+.cell.light{background:#fef08a;border-color:#f59e0b}
+.cell.dark{background:#000000;border-color:#000000}
+.cell.exercise{outline:2px solid #22c55e}
+.cell.travel{background:#cbd5e1}
+.dot{position:absolute;top:2px;right:2px;width:8px;height:8px;background:#ef4444;border-radius:50%;z-index:3}
+.mMark{position:absolute;bottom:2px;left:2px;font-size:9px;line-height:1;color:#b91c1c;font-weight:700;background:#ffffffcc;border:1px solid #ef4444;border-radius:3px;padding:1px 2px;z-index:4}
+.tMark{position:absolute;bottom:2px;right:2px;font-size:9px;line-height:1;color:#111827;font-weight:700;background:#ffffffcc;border:1px solid #9ca3af;border-radius:3px;padding:1px 3px;z-index:2}

@@ -257,11 +257,12 @@ function Cell({ slot }: { slot: ReturnType<typeof groupEventsByUTCDate>[number][
   if (slot.is_dark) classes.push(styles.dark)
   if (slot.is_travel) classes.push(styles.travel)
   if (slot.is_exercise) classes.push(styles.exercise)
-  // melatonin as a marker dot
+  // CBTmin as red dot, Melatonin as 'M' marker
   return (
     <div className={classes.join(' ')}>
-      {slot.is_melatonin && <span className={styles.dot} />}
-      {slot.is_cbtmin && <span className={styles.cbtDot} />}
+      {slot.is_cbtmin && <span className={styles.dot} />}
+      {slot.is_melatonin && <span className={styles.mMark}>M</span>}
+      {slot.is_travel && <span className={styles.tMark}>t</span>}
     </div>
   )
 }
