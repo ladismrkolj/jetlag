@@ -12,6 +12,7 @@ type Inputs = {
   useMelatonin: boolean
   useLightDark: boolean
   useExercise: boolean
+  shiftOnTravelDays: boolean
   preDays: number
 }
 
@@ -87,7 +88,7 @@ function createJetLagTimetable(inp: Inputs) {
     originSleepStart, originSleepEnd,
     destSleepStart, destSleepEnd,
     travelStart, travelEnd,
-    useMelatonin, useLightDark, useExercise,
+    useMelatonin, useLightDark, useExercise, shiftOnTravelDays,
     preDays
   } = inp
 
@@ -157,6 +158,21 @@ function createJetLagTimetable(inp: Inputs) {
   const events: any[] = []
   const meta = { phase_direction: phaseDirection, signed_initial_diff_hours: signedInitial }
 
+  // Helper: trim interval outside travel window (keep longer side)
+  function trimIntervalOutsideWindow(iv: readonly [Date, Date], win: readonly [Date, Date]) {
+    const [s, e] = iv, [ws, we] = win
+    if (e <= ws || s >= we) return [s, e] as const // no overlap
+    if (s >= ws && e <= we) return null
+    const leftValid = s < ws ? [s, new Date(Math.min(e.getTime(), ws.getTime()))] as const : null
+    const rightValid = e > we ? [new Date(Math.max(s.getTime(), we.getTime())), e] as const : null
+    if (leftValid && rightValid) {
+      const ldur = leftValid[1].getTime() - leftValid[0].getTime()
+      const rdur = rightValid[1].getTime() - rightValid[0].getTime()
+      return (ldur >= rdur) ? leftValid : rightValid
+    }
+    return (leftValid || rightValid)
+  }
+
   // CBTmin and interventions
   for (const { dayIndex, dt } of cbtEntries) {
     events.push({ event: 'cbtmin', start: isoZ(dt), end: null, is_cbtmin: true, is_melatonin:false, is_light:false, is_dark:false, is_exercise:false, is_sleep:false, is_travel:false, day_index: dayIndex, ...meta })
@@ -169,17 +185,31 @@ function createJetLagTimetable(inp: Inputs) {
     if (useLightDark) {
       const l0 = new Date(dt.getTime() + 1*3600*1000), l1 = new Date(dt.getTime() + 2*3600*1000)
       const d0 = new Date(dt.getTime() - 1*3600*1000), d1 = new Date(dt.getTime() + 1*3600*1000)
-      if (!(l0 < travelInt[1] && l1 > travelInt[0])) {
-        events.push({ event: 'light', start: isoZ(l0), end: isoZ(l1), is_cbtmin:false, is_melatonin:false, is_light:true, is_dark:false, is_exercise:false, is_sleep:false, is_travel:false, day_index: null, ...meta })
-      }
-      if (!(d0 < travelInt[1] && d1 > travelInt[0])) {
-        events.push({ event: 'dark', start: isoZ(d0), end: isoZ(d1), is_cbtmin:false, is_melatonin:false, is_light:false, is_dark:true, is_exercise:false, is_sleep:false, is_travel:false, day_index: null, ...meta })
+      const lightIv = [l0, l1] as const
+      const darkIv = [d0, d1] as const
+      if (shiftOnTravelDays) {
+        const ltrim = trimIntervalOutsideWindow(lightIv, travelInt)
+        if (ltrim) events.push({ event: 'light', start: isoZ(ltrim[0]), end: isoZ(ltrim[1]), is_cbtmin:false, is_melatonin:false, is_light:true, is_dark:false, is_exercise:false, is_sleep:false, is_travel:false, day_index: null, ...meta })
+        const dtrim = trimIntervalOutsideWindow(darkIv, travelInt)
+        if (dtrim) events.push({ event: 'dark', start: isoZ(dtrim[0]), end: isoZ(dtrim[1]), is_cbtmin:false, is_melatonin:false, is_light:false, is_dark:true, is_exercise:false, is_sleep:false, is_travel:false, day_index: null, ...meta })
+      } else {
+        if (!(l0 < travelInt[1] && l1 > travelInt[0])) {
+          events.push({ event: 'light', start: isoZ(l0), end: isoZ(l1), is_cbtmin:false, is_melatonin:false, is_light:true, is_dark:false, is_exercise:false, is_sleep:false, is_travel:false, day_index: null, ...meta })
+        }
+        if (!(d0 < travelInt[1] && d1 > travelInt[0])) {
+          events.push({ event: 'dark', start: isoZ(d0), end: isoZ(d1), is_cbtmin:false, is_melatonin:false, is_light:false, is_dark:true, is_exercise:false, is_sleep:false, is_travel:false, day_index: null, ...meta })
+        }
       }
     }
     if (useExercise) {
       const e0 = new Date(dt.getTime() + 10*3600*1000), e1 = new Date(dt.getTime() + 11*3600*1000)
-      if (!(e0 < travelInt[1] && e1 > travelInt[0])) {
-        events.push({ event: 'exercise', start: isoZ(e0), end: isoZ(e1), is_cbtmin:false, is_melatonin:false, is_light:false, is_dark:false, is_exercise:true, is_sleep:false, is_travel:false, day_index: null, ...meta })
+      if (shiftOnTravelDays) {
+        const etrim = trimIntervalOutsideWindow([e0, e1] as const, travelInt)
+        if (etrim) events.push({ event: 'exercise', start: isoZ(etrim[0]), end: isoZ(etrim[1]), is_cbtmin:false, is_melatonin:false, is_light:false, is_dark:false, is_exercise:true, is_sleep:false, is_travel:false, day_index: null, ...meta })
+      } else {
+        if (!(e0 < travelInt[1] && e1 > travelInt[0])) {
+          events.push({ event: 'exercise', start: isoZ(e0), end: isoZ(e1), is_cbtmin:false, is_melatonin:false, is_light:false, is_dark:false, is_exercise:true, is_sleep:false, is_travel:false, day_index: null, ...meta })
+        }
       }
     }
   }
@@ -204,4 +234,3 @@ function createJetLagTimetable(inp: Inputs) {
   events.sort((a,b) => a.start.localeCompare(b.start))
   return events
 }
-

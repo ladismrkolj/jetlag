@@ -16,7 +16,11 @@ export default function Page() {
   const [useMelatonin, setUseMelatonin] = useState(true)
   const [useLightDark, setUseLightDark] = useState(true)
   const [useExercise, setUseExercise] = useState(false)
+  const [shiftOnTravelDays, setShiftOnTravelDays] = useState(false)
   const [preDays, setPreDays] = useState(2)
+  // Freeze legend offsets to last-calculated values
+  const [legendOriginOffset, setLegendOriginOffset] = useState<TzOffset>(-5)
+  const [legendDestOffset, setLegendDestOffset] = useState<TzOffset>(1)
   const [events, setEvents] = useState<any[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -62,13 +66,17 @@ export default function Page() {
           useMelatonin,
           useLightDark,
           useExercise,
+          shiftOnTravelDays,
           preDays,
         })
       })
       if (!res.ok) throw new Error(`API error: ${res.status}`)
       const data = await res.json()
       setEvents(data.events)
-      setDebugSlots(null)
+      // Update the displayed legends only upon successful calculation
+      setLegendOriginOffset(originOffset)
+      setLegendDestOffset(destOffset)
+      // reset any ad-hoc debug views if present
     } catch (err: any) {
       setError(err.message || 'Unknown error')
     } finally {
@@ -110,6 +118,7 @@ export default function Page() {
           <label><input type="checkbox" checked={useMelatonin} onChange={e => setUseMelatonin(e.target.checked)} /> Melatonin</label>
           <label><input type="checkbox" checked={useLightDark} onChange={e => setUseLightDark(e.target.checked)} /> Light/Dark</label>
           <label><input type="checkbox" checked={useExercise} onChange={e => setUseExercise(e.target.checked)} /> Exercise</label>
+          <label title="Allow shifting/activities around travel when possible."><input type="checkbox" checked={shiftOnTravelDays} onChange={e => setShiftOnTravelDays(e.target.checked)} /> Shift on travel days</label>
         </div>
         <div className={styles.actions}>
           <button type="submit" disabled={loading}>{loading ? 'Calculating…' : 'Calculate'}</button>
@@ -119,7 +128,7 @@ export default function Page() {
 
       {error && <p className={styles.error}>{error}</p>}
 
-      {events && <TimetableGrid events={events} originOffset={originOffset} destOffset={destOffset} />}
+      {events && <TimetableGrid events={events} originOffset={legendOriginOffset} destOffset={legendDestOffset} />}
 
       {events && (
         <div className={styles.emojiBand}>
@@ -171,7 +180,7 @@ export default function Page() {
                     comment: reportComment,
                     inputs: {
                       originOffset, destOffset, originSleepStart, originSleepEnd, destSleepStart, destSleepEnd,
-                      travelStart, travelEnd, useMelatonin, useLightDark, useExercise, preDays
+                      travelStart, travelEnd, useMelatonin, useLightDark, useExercise, shiftOnTravelDays, preDays
                     },
                     data: events ?? null,
                     userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
@@ -247,7 +256,7 @@ export default function Page() {
                     comment:quickComment || null,
                     nameSuggestion:quickName || null,
                     email: (quickEmail || '').trim() || null,
-                    inputs:{ originOffset, destOffset, preDays },
+                    inputs:{ originOffset, destOffset, preDays, shiftOnTravelDays },
                     url: typeof location!=='undefined'?location.href:'unknown',
                   }
                   const res=await fetch('/api/report',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
