@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
+import { google } from 'googleapis'
 
 export async function POST(req: NextRequest) {
   let payload: any
@@ -64,9 +65,69 @@ export async function POST(req: NextRequest) {
 
   try {
     await transporter.sendMail({ from, to, subject, text, attachments })
+    // Fire-and-forget append to Google Sheets (best-effort)
+    try {
+      await appendToSheet(req, payload)
+    } catch (e) {
+      console.error('[report] sheets append error', e)
+    }
     return NextResponse.json({ ok: true })
   } catch (e: any) {
     console.error('[report] send error', e)
     return NextResponse.json({ error: e?.message || 'Send failed' }, { status: 500 })
   }
+}
+
+async function appendToSheet(req: NextRequest, payload: any) {
+  const sheetId = process.env.GOOGLE_SHEETS_ID
+  const sheetTab = process.env.GOOGLE_SHEETS_TAB || 'Sheet1'
+  const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
+  const privateKeyRaw = process.env.GOOGLE_PRIVATE_KEY
+  if (!sheetId || !clientEmail || !privateKeyRaw) return
+
+  const privateKey = privateKeyRaw.replace(/\\n/g, '\n')
+  const auth = new google.auth.JWT({
+    email: clientEmail,
+    key: privateKey,
+    scopes: ['https://www.googleapis.com/auth/spreadsheets']
+  })
+  const sheets = google.sheets({ version: 'v4', auth })
+
+  // Build a sanitized row (do not include big blobs like screenshot or slots/data)
+  const now = new Date().toISOString()
+  const ip = req.headers.get('x-forwarded-for') || ''
+  const ua = payload?.userAgent || req.headers.get('user-agent') || ''
+  const url = payload?.url || ''
+  const type = payload?.type || (payload?.rating ? 'quick_feedback' : 'report')
+  const rating = payload?.rating || ''
+  const source = payload?.source || ''
+  const email = (payload?.email || '').toString()
+  const nameSuggestion = payload?.nameSuggestion || ''
+  const comment = payload?.comment || payload?.message || payload?.inputs?.message || ''
+  const originOffset = payload?.inputs?.originOffset ?? ''
+  const destOffset = payload?.inputs?.destOffset ?? ''
+  const preDays = payload?.inputs?.preDays ?? ''
+
+  const values = [[
+    now,
+    type,
+    rating,
+    source,
+    email,
+    nameSuggestion,
+    comment,
+    originOffset,
+    destOffset,
+    preDays,
+    ua,
+    ip,
+    url,
+  ]]
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: sheetId,
+    range: `${sheetTab}!A1`,
+    valueInputOption: 'RAW',
+    requestBody: { values },
+  })
 }
