@@ -18,7 +18,6 @@ export default function Page() {
   const [useExercise, setUseExercise] = useState(false)
   const [preDays, setPreDays] = useState(2)
   const [events, setEvents] = useState<any[] | null>(null)
-  const [debugSlots, setDebugSlots] = useState<any[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [reportOpen, setReportOpen] = useState(false)
@@ -77,21 +76,7 @@ export default function Page() {
     }
   }
 
-  const onLoadSample = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await fetch('/debug-slots.json')
-      if (!res.ok) throw new Error(`Fetch error: ${res.status}`)
-      const data = await res.json()
-      setDebugSlots(data)
-      setEvents(null)
-    } catch (err:any) {
-      setError(err.message || 'Unknown error')
-    } finally {
-      setLoading(false)
-    }
-  }
+  // removed sample slots loader
 
   return (
     <main className={styles.main}>
@@ -128,16 +113,15 @@ export default function Page() {
         </div>
         <div className={styles.actions}>
           <button type="submit" disabled={loading}>{loading ? 'Calculating…' : 'Calculate'}</button>
-          <button type="button" onClick={onLoadSample} disabled={loading}>Load sample slots</button>
+          
         </div>
       </form>
 
       {error && <p className={styles.error}>{error}</p>}
 
       {events && <TimetableGrid events={events} originOffset={originOffset} destOffset={destOffset} />}
-      {debugSlots && <DebugSlotsGrid slots={debugSlots} originOffset={originOffset} destOffset={destOffset} />}
 
-      {(events || debugSlots) && (
+      {events && (
         <div className={styles.emojiBand}>
           <button className={styles.emojiButton} aria-label="Love it" onClick={() => { setQuickRating('heart'); setQuickOpen(true); setQuickMessage(null) }}>❤️</button>
           <button className={styles.emojiButton} aria-label="Great" onClick={() => { setQuickRating('party'); setQuickOpen(true); setQuickMessage(null) }}>🎉</button>
@@ -189,7 +173,7 @@ export default function Page() {
                       originOffset, destOffset, originSleepStart, originSleepEnd, destSleepStart, destSleepEnd,
                       travelStart, travelEnd, useMelatonin, useLightDark, useExercise, preDays
                     },
-                    data: events ?? debugSlots ?? null,
+                    data: events ?? null,
                     userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
                     url: typeof location !== 'undefined' ? location.href : 'unknown',
                     screenshot,
@@ -198,9 +182,7 @@ export default function Page() {
                   // attach full rasterized slots
                   try {
                     let slotsPayload: any[] = []
-                    if (Array.isArray(debugSlots) && debugSlots.length) {
-                      slotsPayload = debugSlots
-                    } else if (Array.isArray(events) && events.length) {
+                    if (Array.isArray(events) && events.length) {
                       const days = groupEventsByUTCDate(events)
                       slotsPayload = ([] as any[]).concat(...days.map(d => d.slots))
                     }
