@@ -192,7 +192,7 @@ export default function Page() {
                   try {
                     let slotsPayload: any[] = []
                     if (Array.isArray(events) && events.length) {
-                      const days = groupEventsByUTCDate(events)
+                      const days = groupEventsByLocalDate(events, legendDestOffset)
                       slotsPayload = ([] as any[]).concat(...days.map(d => d.slots))
                     }
                     ;(payload as any).slots = slotsPayload
@@ -282,8 +282,8 @@ function hourLabels(offset: number) {
 }
 
 function TimetableGrid({ events, originOffset, destOffset }: { events: any[], originOffset: number, destOffset: number }) {
-  // Group events by UTC date for display; 48 columns (30-minute slots)
-  const days = useMemo(() => groupEventsByUTCDate(events), [events])
+  // Group events by destination local date; 48 columns (30-minute slots)
+  const days = useMemo(() => groupEventsByLocalDate(events, destOffset), [events, destOffset])
   const hoursUTC = Array.from({ length: 24 }, (_, i) => i)
   const hoursOrigin = hourLabels(originOffset)
   const hoursDest = hourLabels(destOffset)
@@ -367,6 +367,7 @@ function DebugSlotsGrid({ slots, originOffset, destOffset }: { slots: any[], ori
   }, [slots])
 
   const hoursUTC = Array.from({ length: 24 }, (_, i) => i)
+  const hours = hoursUTC
   return (
     <div className={styles.gridWrap}>
       <div className={styles.legend}>
@@ -397,7 +398,7 @@ function DebugSlotsGrid({ slots, originOffset, destOffset }: { slots: any[], ori
   )
 }
 
-function Row({ day }: { day: ReturnType<typeof groupEventsByUTCDate>[number] }) {
+function Row({ day }: { day: ReturnType<typeof groupEventsByLocalDate>[number] }) {
   return (
     <>
       <div className={styles.rowLabel}>{day.date}</div>
@@ -408,7 +409,7 @@ function Row({ day }: { day: ReturnType<typeof groupEventsByUTCDate>[number] }) 
   )
 }
 
-function Cell({ slot }: { slot: ReturnType<typeof groupEventsByUTCDate>[number]['slots'][number] }) {
+function Cell({ slot }: { slot: ReturnType<typeof groupEventsByLocalDate>[number]['slots'][number] }) {
   const classes = [styles.cell]
   if (slot.is_sleep) classes.push(styles.sleep)
   if (slot.is_light) classes.push(styles.light)
@@ -425,25 +426,32 @@ function Cell({ slot }: { slot: ReturnType<typeof groupEventsByUTCDate>[number][
   )
 }
 
-function groupEventsByUTCDate(events: any[]) {
-  // Build 30-minute slots for each UTC day spanned by events
+function groupEventsByLocalDate(events: any[], destOffset: number) {
+  // Build 30-minute slots for each DESTINATION-local day spanned by events (00–24 local)
   const parse = (s: string | null) => (s ? new Date(s) : null)
   if (!events.length) return [] as any[]
   const starts = events.map(e => parse(e.start)).filter(Boolean) as Date[]
   const ends = events.map(e => parse(e.end)).filter(Boolean) as Date[]
-  const minStart = new Date(Math.min(...starts.map(d => d.getTime())))
-  const maxEnd = ends.length ? new Date(Math.max(...ends.map(d => d.getTime()))) : new Date(Math.max(...starts.map(d => d.getTime())))
-  // Normalize to UTC midnights
-  const startDay = new Date(Date.UTC(minStart.getUTCFullYear(), minStart.getUTCMonth(), minStart.getUTCDate()))
-  const endDay = new Date(Date.UTC(maxEnd.getUTCFullYear(), maxEnd.getUTCMonth(), maxEnd.getUTCDate()))
-  // inclusive end day
+  const minStartUTC = new Date(Math.min(...starts.map(d => d.getTime())))
+  const maxEndUTC = ends.length ? new Date(Math.max(...ends.map(d => d.getTime()))) : new Date(Math.max(...starts.map(d => d.getTime())))
+
+  // Convert UTC instants to destination local dates (as UTC Date at local midnight)
+  const toLocalDateUTC = (dUTC: Date) => {
+    const local = new Date(dUTC.getTime() + destOffset*3600*1000)
+    return new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()))
+  }
+  const startLocalDateUTC = toLocalDateUTC(minStartUTC)
+  const endLocalDateUTC = toLocalDateUTC(maxEndUTC)
+
   const days: { date: string, slots: any[] }[] = []
-  for (let d = new Date(startDay); d <= endDay; d = new Date(d.getTime() + 24*3600*1000)) {
-    const dateStr = d.toISOString().slice(0,10)
+  for (let dLocal = new Date(startLocalDateUTC); dLocal <= endLocalDateUTC; dLocal = new Date(dLocal.getTime() + 24*3600*1000)) {
+    // local midnight in UTC by subtracting offset
+    const dayStartUTC = new Date(dLocal.getTime() - destOffset*3600*1000)
+    const dateStr = dLocal.toISOString().slice(0,10) // local date label
     const slots = [] as any[]
     for (let i = 0; i < 48; i++) {
-      const slotStart = new Date(d.getTime() + i*30*60*1000)
-      const slotEnd = new Date(d.getTime() + (i+1)*30*60*1000)
+      const slotStart = new Date(dayStartUTC.getTime() + i*30*60*1000)
+      const slotEnd = new Date(dayStartUTC.getTime() + (i+1)*30*60*1000)
       // aggregate flags if any event overlaps
       const flags = { is_sleep:false, is_light:false, is_dark:false, is_travel:false, is_exercise:false, is_melatonin:false, is_cbtmin:false }
       for (const e of events) {

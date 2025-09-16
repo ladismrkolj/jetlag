@@ -26,8 +26,8 @@ def main():
         travel_end=travel_end,
         use_melatonin=True,
         use_exercise=False,
-        use_light_dark=True,
-        precondition_days=2,
+        use_light_dark=False,
+        precondition_days=0,
         shift_on_travel_days=False
     )
 
