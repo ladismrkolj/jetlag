@@ -11,7 +11,248 @@ __all__ = [
     "rasterize_timetable",
 ]
 
+def sum_time_timedelta(t: time, td: timedelta) -> time:
+    """Add a timedelta to a time."""
+    ref_date = date(2000, 1, 1)
+    dt = datetime.combine(ref_date, t)
+    result_dt = dt + td
+    return result_dt.time()
 
+def astimezone_time(t: time, tz: timezone) -> time:
+    """Convert a time to a different timezone."""
+    ref_date = date(2000, 1, 1)
+    dt = datetime.combine(ref_date, t)
+    result_dt = dt.astimezone(tz)
+    return result_dt.time()
+
+def subtract_times(t1: time, t2: time) -> timedelta:
+    """Subtract two times."""
+    ref_date = date(2000, 1, 1)
+    dt1 = datetime.combine(ref_date, t1)
+    dt2 = datetime.combine(ref_date, t2)
+    return dt1 - dt2
+
+def hours_from_timedelta(td: timedelta) -> float:
+    """Convert a timedelta to hours (can be fractional)"""
+    return td.total_seconds() / 3600
+
+def is_in_time_interval(dt: datetime, sleep_start: time, sleep_end: time) -> bool:
+    """Determine if it's sleep time at the given datetime using local sleep schedule."""
+    time_of_day = dt.time()
+    if sleep_start <= sleep_end:
+        return sleep_start <= time_of_day < sleep_end
+    else:  # Sleep schedule crosses midnight
+        return time_of_day >= sleep_start or time_of_day < sleep_end
+
+def is_inside_interval(ts: datetime, interval: tuple[datetime, datetime]) -> bool:
+    """
+    Check if a datetime is inside a given interval.
+    """
+    start, end = interval
+    return start <= ts <= end
+
+
+def intersection_hours(interval1: tuple[datetime, datetime], interval2: tuple[datetime, datetime]) -> float:
+    """
+    Return the overlap in hours between two datetime intervals.
+    If there is no intersection, returns 0.0.
+    """
+    start1, end1 = interval1
+    start2, end2 = interval2
+
+    # Find latest start and earliest end
+    latest_start = max(start1, start2)
+    earliest_end = min(end1, end2)
+
+    if latest_start >= earliest_end:
+        return 0.0  # no overlap
+
+    overlap_seconds = (earliest_end - latest_start).total_seconds()
+    return overlap_seconds / 3600.0
+
+def midnight_for_datetime(d: datetime) -> datetime:
+    return datetime.combine(d.date(), time(0, 0))
+
+def to_iso(dt: datetime) -> str:
+    return dt.isoformat().replace("+00:00", "Z")
+
+def next_interval(time: datetime, interval:Tuple[time, time], filter_window:Tuple[datetime, datetime]=None) -> Tuple[datetime, datetime]:
+    """Find the next occurrence of a daily time interval after a given datetime.
+    If filter_window is provided, ensure the interval does not overlap it. if the end time is before start time, it is assumed to cross midnight.
+    Returns (start_datetime, end_datetime) of the next interval. If filter_window is provided, 
+    will keep advancing days until it finds an interval that doesn't intersect with the filter window.
+    """
+    start_time, end_time = interval
+    ref_date = time.date()
+    start_dt = datetime.combine(ref_date, start_time)
+    end_dt = datetime.combine(ref_date, end_time)
+    
+    if end_dt <= start_dt:
+        end_dt += timedelta(days=1)  # crosses midnight
+
+    if start_dt <= time:
+        # Move to next day
+        if end_dt > time:
+            start_dt = time
+        else:
+            start_dt += timedelta(days=1)
+            end_dt += timedelta(days=1)
+
+    # Keep advancing days until we find an interval that doesn't intersect with filter_window
+    if filter_window is not None and intersection_hours((start_dt, end_dt), filter_window) > 0:
+        return None, None
+
+    return start_dt, end_dt
+
+class CBTmin:
+    
+    PRESETS: Dict[str, Dict[str, float|tuple]] = {
+    "default": {
+        "melatonin_advance": -11.5,
+        "melatonin_delay": 4,
+        "exercise_advance": (0., 3.),
+        "exercise_delay": (-3., 0.),
+        "light_advance": (0., 3.),
+        "light_delay": (-3., 0.),
+        "dark_advance": (-3., 0.),
+        "dark_delay": (0., 3.),
+        },
+    }
+    
+    def __init__(self, origin_cbtmin: time, dest_cbtmin: time, shift_preset = "default"):
+        self.origin_cbtmin = origin_cbtmin # of course in UTC
+        self.dest_cbtmin = dest_cbtmin # of course in UTC
+        self.presets = self.PRESETS.get(shift_preset)
+        self.cbtmin = self.origin_cbtmin
+        self.phase_direction = "delay" if self.signed_difference() > 0 else ("advance" if self.signed_difference() < 0 else "aligned")
+        
+    def signed_difference(self):
+        return hours_from_timedelta(subtract_times(self.dest_cbtmin, self.origin_cbtmin))
+        
+    def delta_cbtmin(self, melatonin, exercise, light_dark, precondition):
+        if melatonin or exercise or light_dark:
+            if abs(self.signed_difference()) > 3.0:
+                return 1.5 if not precondition else 1.0
+            else:
+                return 1.0
+        else:
+            if abs(self.signed_difference()) > 3.0:
+                return 1.0 if not precondition else 0.0
+            else:
+                return 0.5
+    
+    @classmethod
+    def from_sleep(cls, origin_sleep_start, origin_sleep_end, dest_sleep_start, dest_sleep_end, shift_preset = "default"):
+        """_summary_
+        ALL IN UTC
+        Args:
+            origin_sleep_start (_type_): _description_
+            origin_sleep_end (_type_): _description_
+            dest_sleep_start (_type_): _description_
+            dest_sleep_end (_type_): _description_
+            shift_preset (str, optional): _description_. Defaults to "default".
+
+        Returns:
+            _type_: _description_
+        """
+        origin_cbtmin = sum_time_timedelta(origin_sleep_end, timedelta(-3))
+        dest_cbtmin = sum_time_timedelta(dest_sleep_end, timedelta(-3))
+        return cls(origin_cbtmin, dest_cbtmin, shift_preset)
+    
+    def optimal_melatonin_time(self):
+        if self.phase_direction == 'advance':
+            return timedelta(hours=self.presets["melatonin_advance"])
+        else:
+            return timedelta(hours=self.presets["melatonin_delay"])
+    
+    def optimal_exercise_window(self):
+        if self.phase_direction == 'advance':
+            start = timedelta(hours=self.presets["exercise_advance"][0])
+            end = timedelta(hours=self.presets["exercise_advance"][1])
+        else:
+            start = timedelta(hours=self.presets["exercise_delay"][0])
+            end = timedelta(hours=self.presets["exercise_delay"][1])
+        return (start, end)
+    
+    def optimal_light_window(self):
+        if self.phase_direction == 'advance':
+            start = timedelta(hours=self.presets["light_advance"][0])
+            end = timedelta(hours=self.presets["light_advance"][1])
+        else:
+            start = timedelta(hours=self.presets["light_delay"][0])
+            end = timedelta(hours=self.presets["light_delay"][1])
+        return (start, end)
+    
+    def optimal_dark_window(self):
+        if self.phase_direction == 'advance':
+            start = timedelta(hours=self.presets["dark_advance"][0])
+            end = timedelta(hours=self.presets["dark_advance"][1])
+        else:
+            start = timedelta(hours=self.presets["dark_delay"][0])
+            end = timedelta(hours=self.presets["dark_delay"][1])
+        return (start, end)
+    
+    def next_cbtmin(self, time: datetime, no_intervention_window: Tuple[datetime, datetime] = None, melatonin = True, exercise = True, light = True, dark = True, precondition = True, skip_shift = False):
+        """Calculate next CBTmin time after given datetime, applying shift if outside no_intervention_window.
+        Assume that interventions of last cbtmin could be applied.
+        return what interventions could be applied at this cbtmin.
+        """
+        
+        next_cbtmin = datetime.combine(time.date(), self.cbtmin)
+        if next_cbtmin <= time:
+            next_cbtmin += timedelta(days=1)
+        
+        optimal_melatonin = next_cbtmin + self.optimal_melatonin_time()
+        optimal_exercise = (next_cbtmin + self.optimal_exercise_window()[0], next_cbtmin + self.optimal_exercise_window()[1])
+        optimal_light = (next_cbtmin + self.optimal_light_window()[0], next_cbtmin + self.optimal_light_window()[1])
+        optimal_dark = (next_cbtmin + self.optimal_dark_window()[0], next_cbtmin + self.optimal_dark_window()[1])
+        
+        if is_inside_interval(optimal_melatonin, no_intervention_window):
+            used_melatonin = False
+        else:
+            used_melatonin = melatonin
+        
+        if intersection_hours(optimal_exercise, no_intervention_window) > 0:
+            used_exercise = False
+        else:
+            used_exercise = exercise
+            
+        if intersection_hours(optimal_light, no_intervention_window) > 0:
+            used_light = False
+        else:
+            used_light = light
+            
+        if intersection_hours(optimal_dark, no_intervention_window) > 0:
+            used_dark = False
+        else:
+            used_dark = dark
+        
+        cbtmin_delta = max(self.delta_cbtmin(used_melatonin, used_exercise, used_light or used_dark, precondition), 0)
+        
+        if cbtmin_delta > abs(self.signed_difference()):
+            cbtmin_delta = abs(self.signed_difference())
+            
+        if intersection_hours((next_cbtmin-timedelta(hours=8), next_cbtmin), no_intervention_window) > 0:
+            cbtmin_delta = 0
+        
+        # If no shift needed or already aligned, just return next_cbtmin
+        if cbtmin_delta == 0 or self.phase_direction == "aligned" or skip_shift:
+            return next_cbtmin, ((False, optimal_melatonin), (False, optimal_exercise), (False, optimal_light), (False, optimal_dark))
+        
+        direction_sign = 1 if self.phase_direction == "delay" else -1
+        self.cbtmin = sum_time_timedelta(self.cbtmin, timedelta(hours=cbtmin_delta*direction_sign))
+        next_cbtmin += timedelta(hours=cbtmin_delta*direction_sign)
+        
+        interventions = (
+            (used_melatonin, optimal_melatonin),
+            (used_exercise, optimal_exercise),
+            (used_light, optimal_light),
+            (used_dark, optimal_dark),
+        )
+        
+        return next_cbtmin, interventions
+        
+        
 # --- High-level timetable builder (UTC JSON) -------------------------------
 
 def create_jet_lag_timetable(
@@ -28,13 +269,14 @@ def create_jet_lag_timetable(
     use_exercise: bool,
     use_light_dark: bool,
     precondition_days: int = 0,
+    shift_on_travel_days: bool = False,
 ) -> List[Dict[str, Any]]:
     """Build a UTC JSON timetable from simple inputs.
 
     Rules implemented (summary):
     - CBTmin = 3h before wake time.
     - Day 0 = date (in destination tz) of travel_end; no shift applied on Day 0.
-    - Post‑arrival daily shift magnitude:
+    - Post-arrival daily shift magnitude:
         any method -> 1.5h if diff>3h else 1h; no method -> 1h if diff>3h else 0.5h.
     - Preconditioning days (in origin tz): shift by 1h if any method else 0h per day.
     - No shifts during travel interval.
@@ -42,265 +284,188 @@ def create_jet_lag_timetable(
     - Sleep windows and travel interval included as events; all timestamps in UTC.
     """
 
-    # ---- Small utilities ----
-    def _to_utc_iso(dt: datetime) -> str:
-        return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    origin_sleep_start_utc = sum_time_timedelta(origin_sleep_start, timedelta(-origin_timezone))
+    origin_sleep_end_utc = sum_time_timedelta(origin_sleep_end, timedelta(-origin_timezone))
+    destination_sleep_start_utc = sum_time_timedelta(destination_sleep_start, timedelta(-destination_timezone))
+    destination_sleep_end_utc = sum_time_timedelta(destination_sleep_end, timedelta(-destination_timezone))
 
-    def _to_utc(dt: datetime) -> datetime:
-        return dt.astimezone(timezone.utc)
-
-    def _combine_local(d: date, t: time, tz) -> datetime:
-        # Combine local date+time with tz, then return aware datetime
-        return datetime(d.year, d.month, d.day, t.hour, t.minute, t.second, t.microsecond, tz)
-
-    def _midnight_utc_for_local_date(d: date, tz) -> datetime:
-        return _combine_local(d, time(0, 0), tz).astimezone(timezone.utc)
-
-    def _sleep_window_utc_for_local_date(d: date, sleep_start: time, sleep_end: time, tz) -> Tuple[datetime, datetime]:
-        start_local = _combine_local(d, sleep_start, tz)
-        # If end time is earlier or equal, assume it crosses midnight to next day
-        end_local = _combine_local(d, sleep_end, tz)
-        if end_local <= start_local:
-            end_local = end_local + timedelta(days=1)
-        return _to_utc(start_local), _to_utc(end_local)
-
-    def _cbt_hour_utc_from_sleep_end(sleep_end_local: time, tz, ref_date: date) -> float:
-        wake_local = _combine_local(ref_date, sleep_end_local, tz)
-        cbt_local = wake_local - timedelta(hours=3)
-        cbt_utc = _to_utc(cbt_local)
-        return cbt_utc.hour + cbt_utc.minute / 60 + cbt_utc.second / 3600
-
-    def _wrap_hour(h: float) -> float:
-        return (h % 24 + 24) % 24
-
-    def _signed_delta_hours(curr: float, target: float) -> float:
-        # Smallest signed delta from curr to target in hours, range (-12, 12]
-        delta = (target - curr + 12) % 24 - 12
-        if delta == -12:
-            return 12
-        return delta
-
-    def _move_toward(curr: float, target: float, step: float, direction_sign: int) -> float:
-        """Move CBTmin hour toward target by ``step`` in a fixed direction.
-
-        direction_sign: +1 for delay (later), -1 for advance (earlier), 0 to hold.
-        Caps movement when remaining distance is <= step.
-        """
-        remaining = abs(_signed_delta_hours(curr, target))
-        if remaining <= step:
-            return _wrap_hour(target)
-        if direction_sign == 0:
-            return _wrap_hour(curr)
-        return _wrap_hour(curr + direction_sign * step)
-
-    def _intervals_overlap(a: Tuple[datetime, datetime], b: Tuple[datetime, datetime]) -> bool:
-        return a[0] < b[1] and b[0] < a[1]
-
-    # ---- Normalize and baseline values ----
-    if travel_end.tzinfo is None or travel_start.tzinfo is None:
-        raise ValueError("travel_start and travel_end must be timezone-aware")
-    # Normalize travel interval; allow zero-length and reversed inputs
-    if travel_end < travel_start:
-        travel_start, travel_end = travel_end, travel_start
-
-    travel_start_utc = _to_utc(travel_start)
-    travel_end_utc = _to_utc(travel_end)
+    travel_start_utc = travel_start - timedelta(origin_timezone)
+    travel_end_utc = travel_end - timedelta(destination_timezone)
 
     # Day 0 is destination local date of travel_end
-    day0_dest_local_date = travel_end.astimezone(destination_timezone).date()
+    #day0_dest_local_date = travel_end.astimezone(destination_timezone).date()
 
     # Compute baseline CBTmin hour (UTC) at origin and target at destination
-    origin_ref_date = travel_start.astimezone(origin_timezone).date()
-    dest_ref_date = travel_end.astimezone(destination_timezone).date()
-    origin_cbt_hour = _cbt_hour_utc_from_sleep_end(origin_sleep_end, origin_timezone, origin_ref_date)
-    dest_cbt_hour = _cbt_hour_utc_from_sleep_end(destination_sleep_end, destination_timezone, dest_ref_date)
+    #origin_ref_date = travel_start.astimezone(origin_timezone).date()
+    #dest_ref_date = travel_end.astimezone(destination_timezone).date()
+    #origin_cbt_hour = _cbt_hour_utc_from_sleep_end(origin_sleep_end, origin_timezone)
+    #dest_cbt_hour = _cbt_hour_utc_from_sleep_end(destination_sleep_end, destination_timezone)
 
-    signed_initial_diff = _signed_delta_hours(origin_cbt_hour, dest_cbt_hour)
-    initial_diff = abs(signed_initial_diff)
-    phase_direction = "delay" if signed_initial_diff > 0 else ("advance" if signed_initial_diff < 0 else "aligned")
-    direction_sign = 1 if signed_initial_diff > 0 else (-1 if signed_initial_diff < 0 else 0)
-    any_method = bool(use_melatonin or use_exercise or use_light_dark)
+    #signed_initial_diff = _signed_delta_hours(origin_cbt_hour, dest_cbt_hour)
+    #initial_diff = abs(signed_initial_diff)
+    #phase_direction = "delay" if signed_initial_diff > 0 else ("advance" if signed_initial_diff < 0 else "aligned")
+    #direction_sign = 1 if signed_initial_diff > 0 else (-1 if signed_initial_diff < 0 else 0)
+    #any_method = bool(use_melatonin or use_exercise or use_light_dark)
 
-    # Determine preconditioning step (per day, hours)
-    pre_step = 1.0 if any_method else 0.0
+    # Everything works around the end of travel. This is the fixed point everything is relative to.
 
-    # Post‑arrival step is chosen dynamically each day based on current remaining diff.
-
-    # ---- Build daily CBTmin series (pre, day0, post) ----
-    cbt_entries: List[Tuple[int, datetime]] = []  # (day_index, cbtmin_utc)
-
-    current_hour = origin_cbt_hour
-    origin_local_departure_date = origin_ref_date  # local date on departure
-
-    do_shift = initial_diff >= 3.0
-
-    # Preconditioning days in origin timezone: indices -precondition_days..-1
-    if do_shift:
-        for i in range(precondition_days, 0, -1):
-            d_local = origin_local_departure_date - timedelta(days=i)
-            day_start_utc = _midnight_utc_for_local_date(d_local, origin_timezone)
-            remaining_now = abs(_signed_delta_hours(current_hour, dest_cbt_hour))
-            if pre_step > 0 and direction_sign != 0 and remaining_now > 0:
-                current_hour = _move_toward(current_hour, dest_cbt_hour, pre_step, direction_sign)
-            cbt_dt = day_start_utc + timedelta(hours=current_hour)
-            cbt_entries.append((-i, cbt_dt))
-
-    # Day 0 at destination local date of travel_end; no shift during travel
-    day0_start_utc = _midnight_utc_for_local_date(day0_dest_local_date, destination_timezone)
-    # If no preconditioning days, current_hour is still origin baseline
-    cbt_day0_dt = day0_start_utc + timedelta(hours=current_hour)
-    cbt_entries.append((0, cbt_day0_dt))
-
-    # Post‑arrival days: apply dynamic step until aligned, only if shifting is needed
-    remaining = abs(_signed_delta_hours(current_hour, dest_cbt_hour))
-    day_idx = 1
-    if do_shift and direction_sign != 0:
-        while remaining > 1e-6:  # until aligned
-            day_start_utc = _midnight_utc_for_local_date(day0_dest_local_date + timedelta(days=day_idx), destination_timezone)
-            # choose dynamic step based on current remaining difference
-            if any_method:
-                step_today = 1.5 if remaining > 3.0 else 1.0
-            else:
-                step_today = 1.0 if remaining > 3.0 else 0.5
-            current_hour = _move_toward(current_hour, dest_cbt_hour, step_today, direction_sign)
-            cbt_dt = day_start_utc + timedelta(hours=current_hour)
-            cbt_entries.append((day_idx, cbt_dt))
-            remaining = abs(_signed_delta_hours(current_hour, dest_cbt_hour))
-            day_idx += 1
-
-    # ---- Build interventions around CBTmin (direct, no helper) ----
-    cbtmins_only = [dt for _, dt in cbt_entries]
-
-    travel_interval = (travel_start_utc, travel_end_utc)
-
-    def _point_in_interval(pt: datetime, interval: Tuple[datetime, datetime]) -> bool:
-        return interval[0] <= pt < interval[1]
+    if shift_on_travel_days:
+        start_of_shift = travel_start_utc - timedelta(days=precondition_days)
+    elif precondition_days > 0:
+        start_of_shift = travel_start_utc - timedelta(days=precondition_days)
+    else:
+        start_of_shift = travel_end_utc
+        
+    CBTobj = CBTmin.from_sleep(origin_sleep_start_utc, origin_sleep_end_utc, destination_sleep_start_utc, destination_sleep_end_utc, shift_preset="default")
+    
+    num_extra_before_days = 2
+    
+    midnight_start_of_calculations = midnight_for_datetime(travel_start_utc - timedelta(days=precondition_days+num_extra_before_days))
+    
+    cbt_entries: List[Tuple[datetime, Tuple[Tuple]]] = []
+    
+    first_cbtmin, _ = CBTobj.next_cbtmin(midnight_start_of_calculations, no_intervention_window=(travel_start_utc, travel_end_utc), melatonin=use_melatonin, exercise=use_exercise, light=use_light_dark, dark=use_light_dark, precondition=False, skip_shift=True)
+    cbt_entries.append((first_cbtmin, ((False, first_cbtmin), (False, first_cbtmin), (False, first_cbtmin), (False, first_cbtmin))))
+    
+    time = first_cbtmin
+    while abs(CBTobj.signed_difference()) > 1e-6:
+        if precondition_days > 0 and time > start_of_shift and time < travel_start_utc:
+            is_precondition = True 
+        else:
+            is_precondition = False
+        
+        no_intervention_window = (travel_start_utc, travel_end_utc) if not shift_on_travel_days else None 
+        
+        next_cbtmin, used_interventions = CBTobj.next_cbtmin(time, no_intervention_window=no_intervention_window, melatonin=use_melatonin, exercise=use_exercise, light=use_light_dark, dark=use_light_dark, precondition=is_precondition, skip_shift=(time < start_of_shift))
+        cbt_entries.append((next_cbtmin, used_interventions))
+        time = next_cbtmin
+        
+    midnight_end_of_calculations = midnight_for_datetime(cbt_entries[-1][0] + timedelta(days=1))
 
     intervention_events: List[Dict[str, Any]] = []
 
-    for cbt in cbtmins_only:
-        if use_melatonin:
-            # Single time dose: midpoint of a typical [-2h, -1h] window -> -1.5h
-            m_time = cbt - timedelta(hours=1.5)
-            if not _point_in_interval(m_time, travel_interval):
-                intervention_events.append({
-                    "event": "melatonin",
-                    "start": _to_utc_iso(m_time),
+    for i in range(len(cbt_entries)):
+        intervention_events.append({
+                    "event": "cbtmin",
+                    "start": to_iso(cbt_entries[i][0]),
                     "end": None,
-                    "is_cbtmin": False,
-                    "is_melatonin": True,
+                    "is_cbtmin": True,
+                    "is_melatonin": False,
                     "is_light": False,
                     "is_dark": False,
                     "is_exercise": False,
                     "is_sleep": False,
                     "is_travel": False,
                     "day_index": None,
-                    "phase_direction": phase_direction,
-                    "signed_initial_diff_hours": signed_initial_diff,
+                    "phase_direction": CBTobj.phase_direction,
+                    "signed_initial_diff_hours": CBTobj.signed_difference(),
                 })
-
-        if use_light_dark:
-            # Light: [ +1h, +2h ]; Dark: [ -1h, +1h ]
-            l_start, l_end = cbt + timedelta(hours=1), cbt + timedelta(hours=2)
-            d_start, d_end = cbt - timedelta(hours=1), cbt + timedelta(hours=1)
-            if not _intervals_overlap((l_start, l_end), travel_interval):
-                intervention_events.append({
-                    "event": "light",
-                    "start": _to_utc_iso(l_start),
-                    "end": _to_utc_iso(l_end),
-                    "is_cbtmin": False,
-                    "is_melatonin": False,
-                    "is_light": True,
-                    "is_dark": False,
-                    "is_exercise": False,
-                    "is_sleep": False,
-                    "is_travel": False,
-                    "day_index": None,
-                    "phase_direction": phase_direction,
-                    "signed_initial_diff_hours": signed_initial_diff,
-                })
-            if not _intervals_overlap((d_start, d_end), travel_interval):
-                intervention_events.append({
-                    "event": "dark",
-                    "start": _to_utc_iso(d_start),
-                    "end": _to_utc_iso(d_end),
-                    "is_cbtmin": False,
-                    "is_melatonin": False,
-                    "is_light": False,
-                    "is_dark": True,
-                    "is_exercise": False,
-                    "is_sleep": False,
-                    "is_travel": False,
-                    "day_index": None,
-                    "phase_direction": phase_direction,
-                    "signed_initial_diff_hours": signed_initial_diff,
-                })
-
-        if use_exercise:
-            # Exercise: simple placeholder [ +10h, +11h ] from CBTmin
-            e_start, e_end = cbt + timedelta(hours=10), cbt + timedelta(hours=11)
-            if not _intervals_overlap((e_start, e_end), travel_interval):
-                intervention_events.append({
-                    "event": "exercise",
-                    "start": _to_utc_iso(e_start),
-                    "end": _to_utc_iso(e_end),
-                    "is_cbtmin": False,
-                    "is_melatonin": False,
-                    "is_light": False,
-                    "is_dark": False,
-                    "is_exercise": True,
-                    "is_sleep": False,
-                    "is_travel": False,
-                    "day_index": None,
-                    "phase_direction": phase_direction,
-                    "signed_initial_diff_hours": signed_initial_diff,
-                })
+        
+        # melatonin
+        if cbt_entries[i][1][0][0]:
+            intervention_events.append({
+                        "event": "melatonin",
+                        "start": to_iso(cbt_entries[i][1][0][1]),
+                        "end": None,
+                        "is_cbtmin": False,
+                        "is_melatonin": True,
+                        "is_light": False,
+                        "is_dark": False,
+                        "is_exercise": False,
+                        "is_sleep": False,
+                        "is_travel": False,
+                        "day_index": None,
+                        "phase_direction": CBTobj.phase_direction,
+                        "signed_initial_diff_hours": CBTobj.signed_difference(),
+                    })
+            
+        # exercise
+        if cbt_entries[i][1][1][0]:
+            intervention_events.append({
+                        "event": "exercise",
+                        "start": to_iso(cbt_entries[i][1][1][1][0]),
+                        "end": to_iso(cbt_entries[i][1][1][1][1]),
+                        "is_cbtmin": False,
+                        "is_melatonin": False,
+                        "is_light": False,
+                        "is_dark": False,
+                        "is_exercise": True,
+                        "is_sleep": False,
+                        "is_travel": False,
+                        "day_index": None,
+                        "phase_direction": CBTobj.phase_direction,
+                        "signed_initial_diff_hours": CBTobj.signed_difference(),
+                    })
+        
+        # light
+        if cbt_entries[i][1][2][0]:
+            intervention_events.append({
+                        "event": "light",
+                        "start": to_iso(cbt_entries[i][1][2][1][0]),
+                        "end": to_iso(cbt_entries[i][1][2][1][1]),
+                        "is_cbtmin": False,
+                        "is_melatonin": False,
+                        "is_light": True,
+                        "is_dark": False,
+                        "is_exercise": False,
+                        "is_sleep": False,
+                        "is_travel": False,
+                        "day_index": None,
+                        "phase_direction": CBTobj.phase_direction,
+                        "signed_initial_diff_hours": CBTobj.signed_difference(),
+                    })
+            
+        # dark
+        if cbt_entries[i][1][3][0]:
+            intervention_events.append({
+                        "event": "dark",
+                        "start": to_iso(cbt_entries[i][1][3][1][0]),
+                        "end": to_iso(cbt_entries[i][1][3][1][1]),
+                        "is_cbtmin": False,
+                        "is_melatonin": False,
+                        "is_light": False,
+                        "is_dark": True,
+                        "is_exercise": False,
+                        "is_sleep": False,
+                        "is_travel": False,
+                        "day_index": None,
+                        "phase_direction": CBTobj.phase_direction,
+                        "signed_initial_diff_hours": CBTobj.signed_difference(),
+                    })
+            
 
     # ---- Sleep windows ----
-    sleep_windows: List[Tuple[datetime, datetime, int]] = []  # include day index for tagging
+    sleep_windows: List[Tuple[datetime, datetime]] = []  # include day index for tagging
+    
+    time = midnight_start_of_calculations
+    while time < midnight_end_of_calculations:
+        if time < travel_end_utc:
+            s, e = next_interval(time, (origin_sleep_start_utc, origin_sleep_end_utc), filter_window=(travel_start_utc, travel_end_utc))
+            if s is None or e is None:
+                time += timedelta(days=1)
+                continue
+            sleep_windows.append((s, e))
+            time = e
+        elif time >= travel_end_utc:
+            s, e = next_interval(time, (destination_sleep_start_utc, destination_sleep_end_utc))
+            if s is None or e is None:
+                time += timedelta(days=1)
+                continue
+            if e > midnight_end_of_calculations:
+                e = midnight_end_of_calculations
+            sleep_windows.append((s, e))
+            time = e
 
-    # Preconditioning sleep windows in origin tz
-    for i in range(precondition_days, 0, -1):
-        d_local = origin_local_departure_date - timedelta(days=i)
-        s, e = _sleep_window_utc_for_local_date(d_local, origin_sleep_start, origin_sleep_end, origin_timezone)
-        sleep_windows.append((-i, s, e))
-
-    # Day 0 and onward sleep windows in destination tz
-    for idx in range(0, day_idx):  # includes day 0..last post day
-        d_local = day0_dest_local_date + timedelta(days=idx)
-        s, e = _sleep_window_utc_for_local_date(d_local, destination_sleep_start, destination_sleep_end, destination_timezone)
-        sleep_windows.append((idx, s, e))
 
     # ---- Assemble timeline events ----
     events: List[Dict[str, Any]] = []
 
-    # Add CBTmin points
-    for di, dt in cbt_entries:
-        events.append({
-            "event": "cbtmin",
-            "start": _to_utc_iso(dt),
-            "end": None,
-            "is_cbtmin": True,
-            "is_melatonin": False,
-            "is_light": False,
-            "is_dark": False,
-            "is_exercise": False,
-            "is_sleep": False,
-            "is_travel": False,
-            "day_index": di,
-            "phase_direction": phase_direction,
-            "signed_initial_diff_hours": signed_initial_diff,
-        })
-
-    # Add interventions (already UTC ISO strings)
-    events.extend(intervention_events)
-
     # Add sleep windows
-    for di, s, e in sleep_windows:
+    for s, e in sleep_windows:
         events.append({
             "event": "sleep",
-            "start": _to_utc_iso(s),
-            "end": _to_utc_iso(e),
+            "start": to_iso(s),
+            "end": to_iso(e),
             "is_cbtmin": False,
             "is_melatonin": False,
             "is_light": False,
@@ -308,16 +473,16 @@ def create_jet_lag_timetable(
             "is_exercise": False,
             "is_sleep": True,
             "is_travel": False,
-            "day_index": di,
-            "phase_direction": phase_direction,
-            "signed_initial_diff_hours": signed_initial_diff,
+            "day_index": None,
+            "phase_direction": CBTobj.phase_direction,
+            "signed_initial_diff_hours": CBTobj.signed_difference(),
         })
 
     # Add travel pause
     events.append({
         "event": "travel",
-        "start": _to_utc_iso(travel_start_utc),
-        "end": _to_utc_iso(travel_end_utc),
+        "start": to_iso(travel_start_utc),
+        "end": to_iso(travel_end_utc),
         "is_cbtmin": False,
         "is_melatonin": False,
         "is_light": False,
@@ -325,10 +490,13 @@ def create_jet_lag_timetable(
         "is_exercise": False,
         "is_sleep": False,
         "is_travel": True,
-        "day_index": 0,
-        "phase_direction": phase_direction,
-        "signed_initial_diff_hours": signed_initial_diff,
+        "day_index": None,
+        "phase_direction": CBTobj.phase_direction,
+        "signed_initial_diff_hours": CBTobj.signed_difference(),
     })
+    
+    # Add interventions (already UTC ISO strings)
+    events.extend(intervention_events)
 
     # Sort events by start time
     events.sort(key=lambda e: e["start"])
@@ -339,8 +507,8 @@ def create_jet_lag_timetable(
 
 def rasterize_timetable(
     events: List[Dict[str, Any]],
-    start: datetime,
-    end: datetime,
+    start_utc: datetime,
+    end_utc: datetime,
     step: timedelta | None = None,
     *,
     step_minutes: int | float | None = None,
@@ -358,13 +526,8 @@ def rasterize_timetable(
     - step_minutes: Alternative to step; ignored if step is provided.
     """
 
-    if start.tzinfo is None or end.tzinfo is None:
-        raise ValueError("start and end must be timezone-aware datetimes")
-    if end <= start:
+    if end_utc <= start_utc:
         return []
-
-    def _to_utc(dt: datetime) -> datetime:
-        return dt.astimezone(timezone.utc)
 
     def _parse_utc_iso(s: str | None) -> datetime | None:
         if s is None:
@@ -373,9 +536,6 @@ def rasterize_timetable(
         if s.endswith("Z"):
             s = s[:-1] + "+00:00"
         return datetime.fromisoformat(s)
-
-    start_utc = _to_utc(start)
-    end_utc = _to_utc(end)
 
     slot_step = step if step is not None else timedelta(minutes=float(step_minutes) if step_minutes is not None else 60)
     if slot_step.total_seconds() <= 0:

@@ -3,11 +3,11 @@ from jetlag_core import create_jet_lag_timetable, rasterize_timetable
 
 def main():
     # Example: Trip from New York (UTC-4) to Paris (UTC+2)
-    ny_tz = timezone(timedelta(hours=-4))
-    paris_tz = timezone(timedelta(hours=2))
+    ny_tz = -4
+    paris_tz = 2
 
-    travel_start = datetime(2025, 9, 10, 18, 0, tzinfo=ny_tz)
-    travel_end = datetime(2025, 9, 11, 8, 0, tzinfo=paris_tz)
+    travel_start = datetime(2025, 9, 10, 18, 0)
+    travel_end = datetime(2025, 9, 11, 8, 0)
 
     # Habitual sleep windows in local time
     origin_sleep_start = time(23, 0)
@@ -28,6 +28,7 @@ def main():
         use_exercise=False,
         use_light_dark=True,
         precondition_days=2,
+        shift_on_travel_days=False
     )
 
     # Print a brief summary of raw events
@@ -36,10 +37,10 @@ def main():
         print(e)
 
     # Rasterize into 30-minute slots over a 5-day window around travel
-    start_window = min(travel_start.astimezone(timezone.utc) - timedelta(days=2),
-                       travel_end.astimezone(timezone.utc) - timedelta(days=2))
-    end_window = travel_end.astimezone(timezone.utc) + timedelta(days=3)
-    slots = rasterize_timetable(events, start=start_window, end=end_window, step_minutes=30)
+    start_window = min(travel_start - timedelta(days=2),
+                       travel_end- timedelta(days=2))
+    end_window = travel_end + timedelta(days=3)
+    slots = rasterize_timetable(events, start_utc=start_window, end_utc=end_window, step_minutes=30)
 
     print("\nRasterized slots (first 10):")
     for s in slots[:10]:
