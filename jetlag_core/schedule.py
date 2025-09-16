@@ -582,7 +582,7 @@ def rasterize_timetable(
                         flags[k] = True
 
         slot = {
-            "start": start_utc.astimezone(timezone.utc).isoformat().replace("+00:00", "Z") if cur == start_utc else cur.isoformat().replace("+00:00", "Z"),
+            "start": start_utc.isoformat().replace("+00:00", "Z") if cur == start_utc else cur.isoformat().replace("+00:00", "Z"),
             "end": nxt.isoformat().replace("+00:00", "Z"),
             "events": sorted(set(names)),
         }
