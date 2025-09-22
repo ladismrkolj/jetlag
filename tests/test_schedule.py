@@ -8,6 +8,7 @@ import pytest
 from jetlag_core import create_jet_lag_timetable, rasterize_timetable
 from jetlag_core.schedule import (
     sum_time_timedelta,
+    astimezone_time,
     subtract_times,
     hours_from_timedelta,
     is_in_time_interval,
@@ -21,10 +22,10 @@ from jetlag_core.schedule import (
 
 
 def test_create_jet_lag_timetable_basic():
-    ny = timezone(timedelta(hours=-5))
-    paris = timezone(timedelta(hours=1))
-    travel_start = datetime(2024, 1, 1, 12, 0, tzinfo=ny)
-    travel_end = datetime(2024, 1, 2, 6, 0, tzinfo=paris)
+    ny = -5.
+    paris = 1.
+    travel_start = datetime(2024, 1, 1, 12, 0)
+    travel_end = datetime(2024, 1, 2, 6, 0)
     events = create_jet_lag_timetable(
         origin_timezone=ny,
         destination_timezone=paris,
@@ -125,31 +126,54 @@ def test_sum_time_timedelta_wrap():
     assert res.hour == 2 and res.minute == 15
 
 
+def test_astimezone_time_basic():
+    """Test basic timezone conversion."""
+    # Create a time object for 10:00
+    t = time(10, 0)
+    # Convert from UTC to UTC+2
+    tz = timezone(timedelta(hours=2))
+    with pytest.raises(ValueError):
+        astimezone_time(t, tz)
+    t2 = time(10, 0, tzinfo=timezone.utc)
+    result = astimezone_time(t2, tz)
+    # Should be 12:00 in UTC+2
+    assert result == time(12, 0)
+
+
 def test_subtract_times_and_hours():
     t1 = time(9, 0)
     t2 = time(7, 30)
     delta = subtract_times(t1, t2)
     assert isinstance(delta, timedelta)
-    assert hours_from_timedelta(delta) == pytest.approx(1.5)
+    assert delta == timedelta(hours=1.5)
+    
+def test_hours_from_timedelta():
+    td = timedelta(hours=2, minutes=30)
+    hrs = hours_from_timedelta(td)
+    assert isinstance(hrs, float)
+    assert hrs == 2.5
 
 
 def test_is_in_time_interval_across_midnight():
     sleep_start = time(23, 0)
     sleep_end = time(7, 0)
     dt1 = datetime(2025, 1, 1, 23, 30)
-    dt2 = datetime(2025, 1, 2, 6, 59)
+    dt2 = datetime(2025, 1, 2, 23, 00)
     dt3 = datetime(2025, 1, 2, 7, 0)
+    dt4 = datetime(2025, 1, 2, 8, 0)
     assert is_in_time_interval(dt1, sleep_start, sleep_end) is True
     assert is_in_time_interval(dt2, sleep_start, sleep_end) is True
     assert is_in_time_interval(dt3, sleep_start, sleep_end) is False
+    assert is_in_time_interval(dt4, sleep_start, sleep_end) is False
 
 
 def test_is_inside_interval_boundaries():
     start = datetime(2025, 1, 1, 12, 0)
     end = datetime(2025, 1, 1, 14, 0)
     assert is_inside_interval(start, (start, end)) is True
-    assert is_inside_interval(end, (start, end)) is True
-    assert is_inside_interval(datetime(2025, 1, 1, 11, 59), (start, end)) is False
+    assert is_inside_interval(end, (start, end)) is False
+    assert is_inside_interval(datetime(2025, 1, 1, 11, 0), (start, end)) is False
+    assert is_inside_interval(datetime(2025, 1, 1, 13, 0), (start, end)) is True
 
 
 def test_intersection_hours_basic():
@@ -165,27 +189,34 @@ def test_intersection_hours_basic():
     assert intersection_hours((c0, c1), (d0, d1)) == 0.0
 
 
-def test_midnight_for_datetime_and_to_iso():
+def test_midnight_for_datetime():
     dt = datetime(2025, 3, 4, 15, 16, 17)
     md = midnight_for_datetime(dt)
     assert md.hour == 0 and md.minute == 0 and md.second == 0
-    s = to_iso(md)
-    assert isinstance(s, str) and s.startswith("2025-03-04T00:00:00")
+    
+def test_to_iso():
+    dt = datetime(2025, 3, 4, 15, 16, 17)
+    s = to_iso(dt)
+    assert isinstance(s, str) and s.startswith("2025-03-04T15:16:17")
 
 
 def test_next_interval_basic_and_overlap():
     now = datetime(2025, 1, 1, 12, 0)
     interval = (time(13, 0), time(15, 0))
     start, end = next_interval(now, interval)
-    assert start >= now and end > start
-
-    interval2 = (time(23, 0), time(1, 0))
+    assert start == datetime(2025, 1, 1, 13, 0) and end == datetime(2025, 1, 1, 15, 0)
+    
+    interval2 = (time(13, 0), time(15, 0))
     s2, e2 = next_interval(datetime(2025, 1, 1, 22, 0), interval2)
-    assert e2 > s2 and (e2 - s2) == timedelta(hours=2)
+    assert s2 == datetime(2025, 1, 2, 13, 0) and e2 == datetime(2025, 1, 2, 15, 0)
+
+    interval3 = (time(23, 0), time(1, 0))
+    s3, e3 = next_interval(datetime(2025, 1, 1, 22, 0), interval3)
+    assert s3 == datetime(2025, 1, 1, 23, 0) and e3 == datetime(2025, 1, 2, 1, 0)
 
     fw = (datetime(2025, 1, 1, 13, 30), datetime(2025, 1, 1, 14, 0))
-    s3, e3 = next_interval(now, interval, filter_window=fw)
-    assert s3 is None and e3 is None
+    s4, e4 = next_interval(now, interval, filter_window=fw)
+    assert s4 is None and e4 is None
 
 
 def test_cbtmin_phase_and_next():

@@ -20,6 +20,8 @@ def sum_time_timedelta(t: time, td: timedelta) -> time:
 
 def astimezone_time(t: time, tz: timezone) -> time:
     """Convert a time to a different timezone."""
+    if t.tzinfo is None:
+        raise ValueError("Input time should be naive (without timezone)")
     ref_date = date(2000, 1, 1)
     dt = datetime.combine(ref_date, t)
     result_dt = dt.astimezone(tz)
@@ -49,7 +51,7 @@ def is_inside_interval(ts: datetime, interval: tuple[datetime, datetime]) -> boo
     Check if a datetime is inside a given interval.
     """
     start, end = interval
-    return start <= ts <= end
+    return start <= ts < end
 
 
 def intersection_hours(interval1: tuple[datetime, datetime], interval2: tuple[datetime, datetime]) -> float:
@@ -80,7 +82,7 @@ def next_interval(time: datetime, interval:Tuple[time, time], filter_window:Tupl
     """Find the next occurrence of a daily time interval after a given datetime.
     If filter_window is provided, ensure the interval does not overlap it. if the end time is before start time, it is assumed to cross midnight.
     Returns (start_datetime, end_datetime) of the next interval. If filter_window is provided, 
-    will keep advancing days until it finds an interval that doesn't intersect with the filter window.
+    will return None, None if intersects.
     """
     start_time, end_time = interval
     ref_date = time.date()
@@ -98,7 +100,7 @@ def next_interval(time: datetime, interval:Tuple[time, time], filter_window:Tupl
             start_dt += timedelta(days=1)
             end_dt += timedelta(days=1)
 
-    # Keep advancing days until we find an interval that doesn't intersect with filter_window
+    # TODO comment
     if filter_window is not None and intersection_hours((start_dt, end_dt), filter_window) > 0:
         return None, None
 
@@ -257,8 +259,8 @@ class CBTmin:
 
 def create_jet_lag_timetable(
     *,
-    origin_timezone,
-    destination_timezone,
+    origin_timezone: float,
+    destination_timezone: float,
     origin_sleep_start: time,
     origin_sleep_end: time,
     destination_sleep_start: time,
