@@ -433,7 +433,8 @@ function groupEventsByLocalDate(events: any[], destOffset: number) {
   const starts = events.map(e => parse(e.start)).filter(Boolean) as Date[]
   const ends = events.map(e => parse(e.end)).filter(Boolean) as Date[]
   const minStartUTC = new Date(Math.min(...starts.map(d => d.getTime())))
-  const maxEndUTC = ends.length ? new Date(Math.max(...ends.map(d => d.getTime()))) : new Date(Math.max(...starts.map(d => d.getTime())))
+  const latestStartUTC = new Date(Math.max(...starts.map(d => d.getTime())))
+  const maxEndUTC = ends.length ? new Date(Math.max(...ends.map(d => d.getTime()))) : latestStartUTC
 
   // Convert UTC instants to destination local dates (as UTC Date at local midnight)
   const toLocalDateUTC = (dUTC: Date) => {
@@ -459,7 +460,8 @@ function groupEventsByLocalDate(events: any[], destOffset: number) {
         const ee = parse(e.end)
         let occurs = false
         if (ee == null && es) {
-          occurs = es >= slotStart && es < slotEnd
+          // Include point events on [start,end). Edge-case: if exactly at day end, include in last slot.
+          occurs = (es >= slotStart && es < slotEnd) || (i === 47 && es.getTime() === slotEnd.getTime())
         } else if (es && ee) {
           occurs = es < slotEnd && ee > slotStart
         }
