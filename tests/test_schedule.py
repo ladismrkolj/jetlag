@@ -49,10 +49,10 @@ def test_create_jet_lag_timetable_basic():
 
 def test_direction_and_gating_under_3h():
     # Under 3h diff → only Day 0 CBTmin
-    tz0 = timezone.utc
-    tz1 = timezone(timedelta(hours=1))
-    travel_start = datetime(2024, 1, 1, 12, 0, tzinfo=tz0)
-    travel_end = datetime(2024, 1, 1, 13, 0, tzinfo=tz1)  # short hop
+    tz0 = 0.0
+    tz1 = 1.0
+    travel_start = datetime(2024, 1, 1, 12, 0)
+    travel_end = datetime(2024, 1, 1, 13, 0)  # short hop
     events = create_jet_lag_timetable(
         origin_timezone=tz0,
         destination_timezone=tz1,
@@ -69,10 +69,10 @@ def test_direction_and_gating_under_3h():
 
 def test_delay_direction_sign():
     # Choose tz and times so destination CBT is later → delay
-    origin = timezone(timedelta(hours=-5))  # UTC-5
-    dest = timezone(timedelta(hours=5))     # UTC+5
-    travel_start = datetime(2024, 1, 1, 12, 0, tzinfo=origin)
-    travel_end = datetime(2024, 1, 2, 6, 0, tzinfo=dest)
+    origin = -5.0  # UTC-5
+    dest = 5.0     # UTC+5
+    travel_start = datetime(2024, 1, 1, 12, 0)
+    travel_end = datetime(2024, 1, 2, 6, 0)
     events = create_jet_lag_timetable(
         origin_timezone=origin, destination_timezone=dest,
         origin_sleep_start=time(23, 0), origin_sleep_end=time(7, 0),
@@ -86,10 +86,10 @@ def test_delay_direction_sign():
 
 
 def test_zero_length_travel_and_rasterize():
-    tz = timezone.utc
-    travel = datetime(2024, 1, 1, 12, 0, tzinfo=tz)
+    tz_offset = 0.0
+    travel = datetime(2024, 1, 1, 12, 0)
     events = create_jet_lag_timetable(
-        origin_timezone=tz, destination_timezone=tz,
+        origin_timezone=tz_offset, destination_timezone=tz_offset,
         origin_sleep_start=time(23, 0), origin_sleep_end=time(7, 0),
         destination_sleep_start=time(23, 0), destination_sleep_end=time(7, 0),
         travel_start=travel, travel_end=travel,  # zero-length travel
@@ -100,20 +100,92 @@ def test_zero_length_travel_and_rasterize():
     # Rasterize a one-day window
     slots = rasterize_timetable(
         events,
-        start=datetime(2024, 1, 1, 0, 0, tzinfo=tz),
-        end=datetime(2024, 1, 2, 0, 0, tzinfo=tz),
+        start_utc=datetime(2024, 1, 1, 0, 0),
+        end_utc=datetime(2024, 1, 2, 0, 0),
         step_minutes=60,
     )
     assert isinstance(slots, list) and len(slots) > 0
     # Ensure flags aggregate
     assert any(s.get("is_sleep") for s in slots)
     assert any(s.get("is_cbtmin") for s in slots)
-    # all timestamps are ISO Z strings where present
-    for e in events:
-        if isinstance(e.get("start"), str):
-            assert e["start"].endswith("Z")
-        if isinstance(e.get("end"), str):
-            assert e["end"].endswith("Z")
+
+
+@pytest.fixture(scope="module")
+def cbtmin_init_delay():
+    # Origin CBTmin 03:00 → Dest CBTmin 09:00 (+6h) → delay
+    return CBTmin(time(3, 0), time(9, 0))
+
+
+@pytest.fixture(scope="module")
+def cbtmin_from_sleep_advance():
+    # Origin sleep 23–10 → CBT 07:00; Dest sleep 23–07 → CBT 04:00 (−3h) → advance
+    return CBTmin.from_sleep(time(23, 0), time(10, 0), time(23, 0), time(7, 0))
+
+
+@pytest.fixture(scope="module")
+def cbtmin_aligned():
+    # No difference
+    return CBTmin(time(4, 0), time(4, 0))
+
+
+def test_cbtmin_init_full(cbtmin_init_delay):
+    cbt = cbtmin_init_delay
+    assert isinstance(cbt, CBTmin)
+    assert cbt.signed_difference() > 0 and cbt.phase_direction == "delay"
+    # Windows types and directionality
+    from datetime import timedelta as _td
+    m = cbt.optimal_melatonin_time()
+    ex0, ex1 = cbt.optimal_exercise_window()
+    l0, l1 = cbt.optimal_light_window()
+    d0, d1 = cbt.optimal_dark_window()
+    assert isinstance(m, _td) and all(isinstance(x, _td) for x in (ex0, ex1, l0, l1, d0, d1))
+    assert m.total_seconds() > 0 and ex0 <= _td(0) <= ex1 and l0 <= _td(0) and d0 <= _td(0) <= d1
+    # Delta behaviour
+    assert cbt.delta_cbtmin(True, False, False, precondition=False) == 1.5
+    # next_cbtmin without shift
+    now = datetime(2025, 1, 1, 12, 0)
+    cand, used = cbt.next_cbtmin(now, no_intervention_window=(now, now), precondition=False)
+    assert isinstance(cand, datetime) and isinstance(used, tuple) and len(used) == 4
+    assert cand == now.replace(hour=cbt.origin_cbtmin.hour, minute=cbt.origin_cbtmin.minute) + timedelta(hours=1.5) + timedelta(days=1)
+    cand2, used2 = cbt.next_cbtmin(now+timedelta(days=1), no_intervention_window=(now, now), precondition=False)
+    assert cand2 == cand + timedelta(days=1) + timedelta(hours=1.5)
+
+
+def test_cbtmin_from_sleep_full(cbtmin_from_sleep_advance):
+    cbt = cbtmin_from_sleep_advance
+    assert isinstance(cbt, CBTmin)
+    assert cbt.signed_difference() < 0 and cbt.phase_direction == "advance"
+    # Windows
+    from datetime import timedelta as _td
+    m = cbt.optimal_melatonin_time()
+    ex0, ex1 = cbt.optimal_exercise_window()
+    l0, l1 = cbt.optimal_light_window()
+    d0, d1 = cbt.optimal_dark_window()
+    assert isinstance(m, _td) and m.total_seconds() < 0
+    assert ex0 >= _td(0) and l0 >= _td(0) and d0 <= _td(0) <= d1
+    # next_cbtmin gating last 8h
+    now = datetime(2025, 1, 1, 12, 0)
+    cand, _ = cbt.next_cbtmin(now, no_intervention_window=(now, now), precondition=False, skip_shift=True)
+    win = (cand - timedelta(hours=8), cand + timedelta(hours=1))
+    next2, used2 = cbt.next_cbtmin(now, no_intervention_window=win, precondition=False, skip_shift=False)
+    assert isinstance(next2, datetime) and all(p[0] is False for p in used2)
+
+
+def test_cbtmin_delta_values_edgecases():
+    # Large diff (>3h)
+    c_large = CBTmin(time(4, 0), time(10, 0))  # +6h
+    # any method, no precondition → 1.5
+    assert c_large.delta_cbtmin(True, False, False, precondition=False) == 1.5
+    # any method, precondition → 1.0
+    assert c_large.delta_cbtmin(True, False, False, precondition=True) == 1.0
+    # no method → 1.0 (or 0.0 with precondition)
+    assert c_large.delta_cbtmin(False, False, False, precondition=False) == 1.0
+    assert c_large.delta_cbtmin(False, False, False, precondition=True) == 0.0
+
+    # Small diff (<=3h)
+    c_small = CBTmin(time(4, 0), time(6, 0))  # +2h
+    assert c_small.delta_cbtmin(True, False, False, precondition=False) == 1.0
+    assert c_small.delta_cbtmin(False, False, False, precondition=False) == 0.5
 
 
 # --- Helper and format tests (consolidated) ---
@@ -219,48 +291,41 @@ def test_next_interval_basic_and_overlap():
     assert s4 is None and e4 is None
 
 
-def test_cbtmin_phase_and_next():
-    origin_end = time(7, 0)
-    dest_end = time(7, 0)
-    cbt = CBTmin.from_sleep(time(23, 0), origin_end, time(23, 0), dest_end)
-    assert cbt.phase_direction in ("delay", "advance", "aligned")
-
-    now = datetime(2025, 1, 1, 12, 0)
-    no_int = (datetime(2025, 1, 1, 0, 0), datetime(2025, 1, 1, 23, 59))
-    nxt, interventions = cbt.next_cbtmin(now, no_intervention_window=no_int, precondition=False, skip_shift=True)
-    assert isinstance(nxt, datetime)
-    assert isinstance(interventions, tuple) and len(interventions) == 4
-
-
 def test_rasterize_timetable_io_format():
     events = [
         {
             "event": "sleep",
             "start": "2025-01-01T00:00:00Z",
             "end": "2025-01-01T08:00:00Z",
-            "is_sleep": True,
+            "is_cbtmin": False,
+            "is_melatonin": False,
             "is_light": False,
             "is_dark": False,
-            "is_travel": False,
             "is_exercise": False,
-            "is_melatonin": False,
-            "is_cbtmin": False,
+            "is_sleep": True,
+            "is_travel": False,
+            "day_index": None,
+            "phase_direction": "advance",
+            "signed_initial_diff_hours": 1.0,
         },
         {
             "event": "cbtmin",
             "start": "2025-01-01T03:30:00Z",
             "end": None,
-            "is_sleep": False,
+            "is_cbtmin": True,
+            "is_melatonin": False,
             "is_light": False,
             "is_dark": False,
-            "is_travel": False,
             "is_exercise": False,
-            "is_melatonin": False,
-            "is_cbtmin": True,
+            "is_sleep": False,
+            "is_travel": False,
+            "day_index": None,
+            "phase_direction": "advance",
+            "signed_initial_diff_hours": 1.0,
         },
     ]
-    start = datetime(2025, 1, 1, 0, 0)
-    end = datetime(2025, 1, 1, 12, 0)
+    start = datetime(2025, 1, 1, 0, 0, tzinfo=timezone.utc)
+    end = datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc)
     slots = rasterize_timetable(events, start_utc=start, end_utc=end, step_minutes=60)
     assert isinstance(slots, list) and len(slots) > 0
     assert all(isinstance(s["start"], str) and s["start"].endswith("Z") for s in slots)

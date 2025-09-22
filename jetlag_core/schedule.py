@@ -129,7 +129,7 @@ class CBTmin:
         self.phase_direction = "delay" if self.signed_difference() > 0 else ("advance" if self.signed_difference() < 0 else "aligned")
         
     def signed_difference(self):
-        return hours_from_timedelta(subtract_times(self.dest_cbtmin, self.origin_cbtmin))
+        return hours_from_timedelta(subtract_times(self.dest_cbtmin, self.cbtmin))
         
     def delta_cbtmin(self, melatonin, exercise, light_dark, precondition):
         if melatonin or exercise or light_dark:
@@ -157,8 +157,8 @@ class CBTmin:
         Returns:
             _type_: _description_
         """
-        origin_cbtmin = sum_time_timedelta(origin_sleep_end, timedelta(-3))
-        dest_cbtmin = sum_time_timedelta(dest_sleep_end, timedelta(-3))
+        origin_cbtmin = sum_time_timedelta(origin_sleep_end, timedelta(hours=-3))
+        dest_cbtmin = sum_time_timedelta(dest_sleep_end, timedelta(hours=-3))
         return cls(origin_cbtmin, dest_cbtmin, shift_preset)
     
     def optimal_melatonin_time(self):
@@ -286,13 +286,13 @@ def create_jet_lag_timetable(
     - Sleep windows and travel interval included as events; all timestamps in UTC.
     """
 
-    origin_sleep_start_utc = sum_time_timedelta(origin_sleep_start, timedelta(-origin_timezone))
-    origin_sleep_end_utc = sum_time_timedelta(origin_sleep_end, timedelta(-origin_timezone))
-    destination_sleep_start_utc = sum_time_timedelta(destination_sleep_start, timedelta(-destination_timezone))
-    destination_sleep_end_utc = sum_time_timedelta(destination_sleep_end, timedelta(-destination_timezone))
+    origin_sleep_start_utc = sum_time_timedelta(origin_sleep_start, timedelta(hours=-origin_timezone))
+    origin_sleep_end_utc = sum_time_timedelta(origin_sleep_end, timedelta(hours=-origin_timezone))
+    destination_sleep_start_utc = sum_time_timedelta(destination_sleep_start, timedelta(hours=-destination_timezone))
+    destination_sleep_end_utc = sum_time_timedelta(destination_sleep_end, timedelta(hours=-destination_timezone))
 
-    travel_start_utc = travel_start - timedelta(origin_timezone)
-    travel_end_utc = travel_end - timedelta(destination_timezone)
+    travel_start_utc = travel_start - timedelta(hours=origin_timezone)
+    travel_end_utc = travel_end - timedelta(hours=destination_timezone)
 
     # Day 0 is destination local date of travel_end
     #day0_dest_local_date = travel_end.astimezone(destination_timezone).date()
