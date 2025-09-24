@@ -141,12 +141,12 @@ class CBTmin:
             if abs(self.signed_difference()) > 3.0:
                 return 1.5 if not precondition else 1.0
             else:
-                return 1.0
+                return 1.5 if not precondition else 1.0
         else:
             if abs(self.signed_difference()) > 3.0:
                 return 1.0 if not precondition else 0.0
             else:
-                return 0.5
+                return 1.0 if not precondition else 0.0
     
     @classmethod
     def from_sleep(cls, origin_sleep_start, origin_sleep_end, dest_sleep_start, dest_sleep_end, shift_preset = "default"):
@@ -208,11 +208,12 @@ class CBTmin:
         next_cbtmin = datetime.combine(time.date(), self.cbtmin)
         if next_cbtmin <= time:
             next_cbtmin += timedelta(days=1)
+        last_cbtmin = next_cbtmin - timedelta(days=1)
         
-        optimal_melatonin = next_cbtmin + self.optimal_melatonin_time()
-        optimal_exercise = (next_cbtmin + self.optimal_exercise_window()[0], next_cbtmin + self.optimal_exercise_window()[1])
-        optimal_light = (next_cbtmin + self.optimal_light_window()[0], next_cbtmin + self.optimal_light_window()[1])
-        optimal_dark = (next_cbtmin + self.optimal_dark_window()[0], next_cbtmin + self.optimal_dark_window()[1])
+        optimal_melatonin = last_cbtmin + self.optimal_melatonin_time() + (timedelta(days=1) if self.phase_direction == "advance" else timedelta(0))
+        optimal_exercise = (last_cbtmin + self.optimal_exercise_window()[0], last_cbtmin + self.optimal_exercise_window()[1])
+        optimal_light = (last_cbtmin + self.optimal_light_window()[0], last_cbtmin + self.optimal_light_window()[1])
+        optimal_dark = (last_cbtmin + self.optimal_dark_window()[0], last_cbtmin + self.optimal_dark_window()[1])
         
         window = no_intervention_window
         if window is not None and is_inside_interval(optimal_melatonin, window):
@@ -235,6 +236,12 @@ class CBTmin:
         else:
             used_dark = dark
         
+        if abs(self.signed_difference()) < 3.0:
+            used_light = False
+            used_dark = False
+            used_melatonin = False
+            used_exercise = False
+        
         cbtmin_delta = max(self.delta_cbtmin(used_melatonin, used_exercise, used_light or used_dark, precondition), 0)
         
         if cbtmin_delta > abs(self.signed_difference()):
@@ -246,7 +253,8 @@ class CBTmin:
         # If no shift needed or already aligned, just return next_cbtmin
         if cbtmin_delta == 0 or self.phase_direction == "aligned" or skip_shift:
             return next_cbtmin, ((False, optimal_melatonin), (False, optimal_exercise), (False, optimal_light), (False, optimal_dark))
-        
+            
+
         direction_sign = 1 if self.phase_direction == "delay" else -1
         self.cbtmin = sum_time_timedelta(self.cbtmin, timedelta(hours=cbtmin_delta*direction_sign))
         next_cbtmin += timedelta(hours=cbtmin_delta*direction_sign)
