@@ -5,19 +5,32 @@ import styles from './page.module.css'
 type TzOffset = number // in hours, e.g. -5 for New York winter
 
 export default function Page() {
+  // Helpers
+  const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n))
+  const fmtLocal = (d: Date) => {
+    const pad = (x: number) => String(x).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  }
+  const noonPlusDays = (days: number) => {
+    const d = new Date(); d.setDate(d.getDate() + days); d.setHours(12, 0, 0, 0); return fmtLocal(d)
+  }
+
   const [originOffset, setOriginOffset] = useState<TzOffset>(-5)
   const [destOffset, setDestOffset] = useState<TzOffset>(1)
+  const [originOffsetStr, setOriginOffsetStr] = useState<string>(String(-5))
+  const [destOffsetStr, setDestOffsetStr] = useState<string>(String(1))
   const [originSleepStart, setOriginSleepStart] = useState('23:00')
   const [originSleepEnd, setOriginSleepEnd] = useState('07:00')
   const [destSleepStart, setDestSleepStart] = useState('23:00')
   const [destSleepEnd, setDestSleepEnd] = useState('07:00')
-  const [travelStart, setTravelStart] = useState('2025-09-10T18:00')
-  const [travelEnd, setTravelEnd] = useState('2025-09-11T08:00')
+  const [travelStart, setTravelStart] = useState(noonPlusDays(1)) // tomorrow 12:00 local
+  const [travelEnd, setTravelEnd] = useState(noonPlusDays(2))     // day after 12:00 local
   const [useMelatonin, setUseMelatonin] = useState(true)
   const [useLightDark, setUseLightDark] = useState(true)
   const [useExercise, setUseExercise] = useState(false)
   const [shiftOnTravelDays, setShiftOnTravelDays] = useState(false)
   const [preDays, setPreDays] = useState(2)
+  const [preDaysStr, setPreDaysStr] = useState<string>(String(2))
   // Freeze legend offsets to last-calculated values
   const [legendOriginOffset, setLegendOriginOffset] = useState<TzOffset>(-5)
   const [legendDestOffset, setLegendDestOffset] = useState<TzOffset>(1)
@@ -92,11 +105,60 @@ export default function Page() {
       <form className={styles.form} onSubmit={onSubmit}>
         <div className={styles.row}>
           <label>Origin offset (h)</label>
-          <input type="number" step="0.5" value={originOffset} onChange={e => setOriginOffset(parseFloat(e.target.value))} />
+          <input
+            type="number"
+            step="0.5"
+            min={-12}
+            max={12}
+            inputMode="decimal"
+            value={originOffsetStr}
+            onChange={e => setOriginOffsetStr(e.target.value)}
+            onBlur={() => {
+              const p = parseFloat(originOffsetStr)
+              if (!Number.isNaN(p)) {
+                const v = clamp(p, -12, 12)
+                setOriginOffset(v)
+                setOriginOffsetStr(String(v))
+              } else {
+                setOriginOffsetStr(String(originOffset))
+              }
+            }}
+          />
           <label>Destination offset (h)</label>
-          <input type="number" step="0.5" value={destOffset} onChange={e => setDestOffset(parseFloat(e.target.value))} />
+          <input
+            type="number"
+            step="0.5"
+            min={-12}
+            max={12}
+            inputMode="decimal"
+            value={destOffsetStr}
+            onChange={e => setDestOffsetStr(e.target.value)}
+            onBlur={() => {
+              const p = parseFloat(destOffsetStr)
+              if (!Number.isNaN(p)) {
+                const v = clamp(p, -12, 12)
+                setDestOffset(v)
+                setDestOffsetStr(String(v))
+              } else {
+                setDestOffsetStr(String(destOffset))
+              }
+            }}
+          />
           <label>Precondition days</label>
-          <input type="number" min={0} value={preDays} onChange={e => setPreDays(parseInt(e.target.value || '0', 10))} />
+          <input
+            type="number"
+            min={0}
+            max={11}
+            inputMode="numeric"
+            value={preDaysStr}
+            onChange={e => setPreDaysStr(e.target.value)}
+            onBlur={() => {
+              const p = parseInt(preDaysStr || '', 10)
+              const v = clamp(Number.isNaN(p) ? preDays : p, 0, 11)
+              setPreDays(v)
+              setPreDaysStr(String(v))
+            }}
+          />
         </div>
         <div className={styles.row}>
           <label>Origin sleep</label>
