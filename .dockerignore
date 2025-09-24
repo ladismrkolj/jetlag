@@ -1,0 +1,14 @@
+.git
+.gitignore
+.venv
+**/__pycache__/
+**/.pytest_cache/
+**/.next/
+**/node_modules/
+**/dist/
+**/.DS_Store
+Untitled-1.ipynb
+schedule.xlsx
+frontend/.env.local
+frontend/.next/cache
+

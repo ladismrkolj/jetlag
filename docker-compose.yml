@@ -1,0 +1,19 @@
+version: "3.8"
+services:
+  web:
+    build: .
+    container_name: jetlag-web
+    environment:
+      NODE_ENV: production
+      # Set to 1 for verbose API logging
+      CALC_DEBUG: "0"
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    # If you want to constrain resources, uncomment:
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: "1.0"
+    #       memory: 512M
+
