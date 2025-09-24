@@ -458,24 +458,22 @@ def create_jet_lag_timetable(
     sleep_windows: List[Tuple[datetime, datetime]] = []  # include day index for tagging
     
     time = midnight_start_of_calculations
+    sleep_dest = False
     while time < midnight_end_of_calculations:
-        if time < travel_end_utc:
+        if sleep_dest is False:
             s, e = next_interval(time, (origin_sleep_start_utc, origin_sleep_end_utc), filter_window=(travel_start_utc, travel_end_utc))
             if s is None or e is None:
                 time += timedelta(days=1)
                 continue
-            sleep_windows.append((s, e))
-            time = e
-        elif time >= travel_end_utc:
-            s, e = next_interval(time, (destination_sleep_start_utc, destination_sleep_end_utc))
+        if e > travel_start_utc or sleep_dest:
+            s, e = next_interval(time, (destination_sleep_start_utc, destination_sleep_end_utc), filter_window=(travel_start_utc, travel_end_utc))
+            sleep_dest = True
             if s is None or e is None:
                 time += timedelta(days=1)
                 continue
-            if e > midnight_end_of_calculations:
-                e = midnight_end_of_calculations
-            sleep_windows.append((s, e))
-            time = e
-
+        sleep_windows.append((s, e))
+        time = e
+        
 
     # ---- Assemble timeline events ----
     events: List[Dict[str, Any]] = []

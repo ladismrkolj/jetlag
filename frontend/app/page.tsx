@@ -184,6 +184,9 @@ export default function Page() {
         </div>
         <div className={styles.actions}>
           <button type="submit" disabled={loading}>{loading ? 'Calculating…' : 'Calculate'}</button>
+          <button type="button" onClick={() => { if (typeof window !== 'undefined') window.print() }}>
+            Print this page
+          </button>
           
         </div>
       </form>
