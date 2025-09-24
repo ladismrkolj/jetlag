@@ -326,15 +326,15 @@ def create_jet_lag_timetable(
     # Everything works around the end of travel. This is the fixed point everything is relative to.
 
     if shift_on_travel_days:
-        start_of_shift = travel_start_utc - timedelta(days=precondition_days)
+        start_of_shift = midnight_for_datetime(travel_start_utc) - timedelta(days=precondition_days)
     elif precondition_days > 0:
-        start_of_shift = travel_start_utc - timedelta(days=precondition_days)
+        start_of_shift = midnight_for_datetime(travel_start_utc) - timedelta(days=precondition_days)
     else:
         start_of_shift = travel_end_utc
         
     CBTobj = CBTmin.from_sleep(origin_sleep_start_utc, origin_sleep_end_utc, destination_sleep_start_utc, destination_sleep_end_utc, shift_preset="default")
     
-    num_extra_before_days = 2
+    num_extra_before_days = 1
     
     midnight_start_of_calculations = midnight_for_datetime(travel_start_utc - timedelta(days=precondition_days+num_extra_before_days))
     
