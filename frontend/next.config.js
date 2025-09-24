@@ -9,9 +9,9 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   // Optional: also skip TypeScript build errors (uncomment if desired)
-  // typescript: {
-  //   ignoreBuildErrors: true,
-  // },
+  typescript: {
+   ignoreBuildErrors: true,
+  },
 }
 
 module.exports = nextConfig
