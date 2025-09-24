@@ -335,6 +335,7 @@ def create_jet_lag_timetable(
     CBTobj = CBTmin.from_sleep(origin_sleep_start_utc, origin_sleep_end_utc, destination_sleep_start_utc, destination_sleep_end_utc, shift_preset="default")
     
     num_extra_before_days = 1
+    num_extra_after_days = 2
     
     midnight_start_of_calculations = midnight_for_datetime(travel_start_utc - timedelta(days=precondition_days+num_extra_before_days))
     
@@ -344,7 +345,10 @@ def create_jet_lag_timetable(
     cbt_entries.append((first_cbtmin, ((False, first_cbtmin), (False, first_cbtmin), (False, first_cbtmin), (False, first_cbtmin))))
     
     time = first_cbtmin
-    while abs(CBTobj.signed_difference()) > 1e-6:
+    i_ext = 0
+    while (abs(CBTobj.signed_difference()) > 1e-6) or i_ext < num_extra_after_days:
+        if abs(CBTobj.signed_difference()) < 1e-6:
+            i_ext += 1
         if precondition_days > 0 and time > start_of_shift and time < travel_start_utc:
             is_precondition = True 
         else:

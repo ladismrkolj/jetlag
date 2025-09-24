@@ -340,11 +340,11 @@ function TimetableGrid({ events, originOffset, destOffset }: { events: any[], or
         ))}
       </div>
 
-      {/* Bottom legend: UTC */}
+      {/* Bottom legend: Destination local (aligns with row columns) */}
       <div className={styles.legendRow}>
-        <div className={styles.legendLabel}>UTC</div>
-        {hoursUTC.map(h => (
-          <div key={'u'+h} className={styles.headerHour} style={{ gridColumn: 'span 2' }}>
+        <div className={styles.legendLabel}>Destination (UTC{destOffset >= 0 ? '+' : ''}{destOffset})</div>
+        {hoursDest.map(h => (
+          <div key={'ud'+h} className={styles.headerHour} style={{ gridColumn: 'span 2' }}>
             {`${h.toString().padStart(2,'0')}:00`}
           </div>
         ))}
@@ -444,11 +444,17 @@ function groupEventsByLocalDate(events: any[], destOffset: number) {
     const local = new Date(dUTC.getTime() + destOffset*3600*1000)
     return new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()))
   }
-  const startLocalDateUTC = toLocalDateUTC(minStartUTC)
+  // If there is any CBTmin event, start table at that day (destination local midnight)
+  const firstCbt = (events as any[]).filter(e => e && e.event === 'cbtmin' && typeof e.start === 'string')
+    .map(e => new Date(String(e.start)))
+    .sort((a,b)=>a.getTime()-b.getTime())[0]
+  const startLocalDateUTC = firstCbt ? toLocalDateUTC(firstCbt) : toLocalDateUTC(minStartUTC)
   const endLocalDateUTC = toLocalDateUTC(maxEndUTC)
+  // Show one less row than the total calculated span: drop the last day row
+  const lastRowLocalDateUTC = new Date(Math.max(startLocalDateUTC.getTime(), endLocalDateUTC.getTime() - 24*3600*1000))
 
   const days: { date: string, slots: any[] }[] = []
-  for (let dLocal = new Date(startLocalDateUTC); dLocal <= endLocalDateUTC; dLocal = new Date(dLocal.getTime() + 24*3600*1000)) {
+  for (let dLocal = new Date(startLocalDateUTC); dLocal <= lastRowLocalDateUTC; dLocal = new Date(dLocal.getTime() + 24*3600*1000)) {
     // local midnight in UTC by subtracting offset
     const dayStartUTC = new Date(dLocal.getTime() - destOffset*3600*1000)
     const dateStr = dLocal.toISOString().slice(0,10) // local date label
