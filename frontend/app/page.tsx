@@ -288,15 +288,18 @@ function TimetableGrid({ events, originOffset, destOffset }: { events: any[], or
   const hoursOrigin = hourLabels(originOffset)
   const hoursDest = hourLabels(destOffset)
 
-  const lastDay0Date = useMemo(() => {
-    const dates: string[] = []
-    for (const e of events) {
-      if (e.day_index === 0 && typeof e.start === 'string') {
-        dates.push(String(e.start).slice(0,10))
-      }
+  const day0LocalDate = useMemo(() => {
+    // Day 0 is destination local date of travelEnd
+    try {
+      const travel = events.find(e => e && e.event === 'travel' && typeof e.end === 'string')
+      if (!travel) return days.length ? days[0].date : null
+      const te = new Date(String(travel.end))
+      const local = new Date(te.getTime() + destOffset*3600*1000)
+      return local.toISOString().slice(0,10)
+    } catch {
+      return days.length ? days[0].date : null
     }
-    return dates.length ? dates.sort().at(-1)! : null
-  }, [events])
+  }, [events, destOffset, days])
 
   return (
     <div className={styles.gridWrap}>
@@ -323,7 +326,7 @@ function TimetableGrid({ events, originOffset, destOffset }: { events: any[], or
         {days.map((d) => (
           <>
             <Row key={d.date} day={d} />
-            {lastDay0Date === d.date && (
+            {day0LocalDate === d.date && (
               <>
                 <div className={styles.legendLabel}>Destination (UTC{destOffset >= 0 ? '+' : ''}{destOffset})</div>
                 {hoursDest.map(h => (
