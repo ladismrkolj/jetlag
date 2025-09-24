@@ -312,14 +312,15 @@ function TimetableGrid({ events, originOffset, destOffset }: { events: any[], or
         <span className={styles.legendBox + ' ' + styles.cbtmin}>CBTmin</span>
         <span className={styles.legendBox + ' ' + styles.travel}>Travel</span>
       </div>
-      {/* Top legend: Origin local time */}
+      {/* Top legend: Origin local time (shifted left by half slot) */}
       <div className={styles.legendRow}>
         <div className={styles.legendLabel}>Origin (UTC{originOffset >= 0 ? '+' : ''}{originOffset})</div>
-        {hoursOrigin.map(h => (
-          <div key={'o'+h} className={styles.headerHour} style={{ gridColumn: 'span 2' }}>
+        {hoursOrigin.map((h, idx) => (
+          <div key={'o'+idx} className={styles.headerHour + ' ' + styles.headerHourShift} style={{ gridColumn: 'span 2' }}>
             {`${h.toString().padStart(2,'0')}:00`}
           </div>
         ))}
+        <div className={styles.headerHourOverlay}>{`${hoursOrigin[0].toString().padStart(2,'0')}:00`}</div>
       </div>
 
       <div className={styles.grid}>
@@ -329,9 +330,12 @@ function TimetableGrid({ events, originOffset, destOffset }: { events: any[], or
             {day0LocalDate === d.date && (
               <>
                 <div className={styles.legendLabel}>Destination (UTC{destOffset >= 0 ? '+' : ''}{destOffset})</div>
-                {hoursDest.map(h => (
-                  <div key={'d'+d.date+':'+h} className={styles.headerHour} style={{ gridColumn: 'span 2' }}>
+                {hoursDest.map((h, idx) => (
+                  <div key={'d'+d.date+':'+idx} className={styles.headerHour + ' ' + styles.headerHourShift} style={{ gridColumn: 'span 2' }}>
                     {`${h.toString().padStart(2,'0')}:00`}
+                    {idx === 23 && (
+                      <span className={styles.headerHourDupRight}>{`${hoursDest[0].toString().padStart(2,'0')}:00`}</span>
+                    )}
                   </div>
                 ))}
               </>
@@ -340,14 +344,15 @@ function TimetableGrid({ events, originOffset, destOffset }: { events: any[], or
         ))}
       </div>
 
-      {/* Bottom legend: Destination local (aligns with row columns) */}
+      {/* Bottom legend: UTC (aligns with row columns), shifted left by half slot */}
       <div className={styles.legendRow}>
-        <div className={styles.legendLabel}>Destination (UTC{destOffset >= 0 ? '+' : ''}{destOffset})</div>
-        {hoursDest.map(h => (
-          <div key={'ud'+h} className={styles.headerHour} style={{ gridColumn: 'span 2' }}>
+        <div className={styles.legendLabel}>UTC</div>
+        {hoursUTC.map((h, idx) => (
+          <div key={'u'+idx} className={styles.headerHour + ' ' + styles.headerHourShift} style={{ gridColumn: 'span 2' }}>
             {`${h.toString().padStart(2,'0')}:00`}
           </div>
         ))}
+        <div className={styles.headerHourOverlay}>{`${hoursUTC[0].toString().padStart(2,'0')}:00`}</div>
       </div>
     </div>
   )
