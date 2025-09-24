@@ -378,6 +378,7 @@ function TimetableGrid({ events, originOffset, destOffset }: { events: any[], or
         <span className={styles.legendBox + ' ' + styles.cbtmin}>CBTmin</span>
         <span className={styles.legendBox + ' ' + styles.travel}>Travel</span>
       </div>
+      <div className={styles.gridScroller}>
       {/* Top legend: Origin local time (shifted left by half slot) */}
       <div className={styles.legendRow}>
         <div className={styles.legendLabel}>Origin (UTC{originOffset >= 0 ? '+' : ''}{originOffset})</div>
@@ -419,6 +420,7 @@ function TimetableGrid({ events, originOffset, destOffset }: { events: any[], or
           </div>
         ))}
         <div className={styles.headerHourOverlay}>{`${hoursUTC[0].toString().padStart(2,'0')}:00`}</div>
+      </div>
       </div>
     </div>
   )
