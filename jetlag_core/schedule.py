@@ -129,7 +129,12 @@ class CBTmin:
         self.phase_direction = "delay" if self.signed_difference() > 0 else ("advance" if self.signed_difference() < 0 else "aligned")
         
     def signed_difference(self):
-        return hours_from_timedelta(subtract_times(self.dest_cbtmin, self.cbtmin))
+        diff = hours_from_timedelta(subtract_times(self.dest_cbtmin, self.cbtmin))
+        norm = ((diff + 12) % 24) - 12
+        # Handle edge case: -12 → +12
+        if norm == -12:
+            norm = 12
+        return norm
         
     def delta_cbtmin(self, melatonin, exercise, light_dark, precondition):
         if melatonin or exercise or light_dark:
@@ -209,22 +214,23 @@ class CBTmin:
         optimal_light = (next_cbtmin + self.optimal_light_window()[0], next_cbtmin + self.optimal_light_window()[1])
         optimal_dark = (next_cbtmin + self.optimal_dark_window()[0], next_cbtmin + self.optimal_dark_window()[1])
         
-        if is_inside_interval(optimal_melatonin, no_intervention_window):
+        window = no_intervention_window
+        if window is not None and is_inside_interval(optimal_melatonin, window):
             used_melatonin = False
         else:
             used_melatonin = melatonin
         
-        if intersection_hours(optimal_exercise, no_intervention_window) > 0:
+        if window is not None and intersection_hours(optimal_exercise, window) > 0:
             used_exercise = False
         else:
             used_exercise = exercise
             
-        if intersection_hours(optimal_light, no_intervention_window) > 0:
+        if window is not None and intersection_hours(optimal_light, window) > 0:
             used_light = False
         else:
             used_light = light
             
-        if intersection_hours(optimal_dark, no_intervention_window) > 0:
+        if window is not None and intersection_hours(optimal_dark, window) > 0:
             used_dark = False
         else:
             used_dark = dark
@@ -234,7 +240,7 @@ class CBTmin:
         if cbtmin_delta > abs(self.signed_difference()):
             cbtmin_delta = abs(self.signed_difference())
             
-        if intersection_hours((next_cbtmin-timedelta(hours=8), next_cbtmin), no_intervention_window) > 0:
+        if window is not None and intersection_hours((next_cbtmin-timedelta(hours=8), next_cbtmin), window) > 0:
             cbtmin_delta = 0
         
         # If no shift needed or already aligned, just return next_cbtmin

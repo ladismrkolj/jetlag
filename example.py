@@ -3,8 +3,8 @@ from jetlag_core import create_jet_lag_timetable, rasterize_timetable
 
 def main():
     # Example: Trip from New York (UTC-4) to Paris (UTC+2)
-    ny_tz = -4
-    paris_tz = 2
+    ny_tz = 5
+    paris_tz = 1
 
     travel_start = datetime(2025, 9, 10, 18, 0)
     travel_end = datetime(2025, 9, 11, 8, 0)
@@ -33,7 +33,7 @@ def main():
 
     # Print a brief summary of raw events
     print("Jet Lag Timetable (UTC) — first 10 events:")
-    for e in events[:10]:
+    for e in events:
         print(e)
 
     # Rasterize into 30-minute slots over a 5-day window around travel
