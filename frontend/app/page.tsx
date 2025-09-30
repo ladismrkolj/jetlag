@@ -217,21 +217,6 @@ export default function Page() {
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
-          <label>Precondition days</label>
-          <input
-            type="number"
-            min={0}
-            max={11}
-            inputMode="numeric"
-            value={preDaysStr}
-            onChange={e => setPreDaysStr(e.target.value)}
-            onBlur={() => {
-              const p = parseInt(preDaysStr || '', 10)
-              const v = clamp(Number.isNaN(p) ? preDays : p, 0, 11)
-              setPreDays(v)
-              setPreDaysStr(String(v))
-            }}
-          />
         </div>
         <div className={styles.row}>
           <label>Origin sleep</label>
@@ -254,6 +239,24 @@ export default function Page() {
           <label><input type="checkbox" checked={useLightDark} onChange={e => setUseLightDark(e.target.checked)} /> Light/Dark</label>
           <label><input type="checkbox" checked={useExercise} onChange={e => setUseExercise(e.target.checked)} /> Exercise</label>
           <label title="Allow shifting/activities around travel when possible."><input type="checkbox" checked={shiftOnTravelDays} onChange={e => setShiftOnTravelDays(e.target.checked)} /> Shift on travel days</label>
+          <div className={styles.preDaysControl}>
+            <label htmlFor="preDaysInput">Precondition days</label>
+            <input
+              id="preDaysInput"
+              type="number"
+              min={0}
+              max={11}
+              inputMode="numeric"
+              value={preDaysStr}
+              onChange={e => setPreDaysStr(e.target.value)}
+              onBlur={() => {
+                const p = parseInt(preDaysStr || '', 10)
+                const v = clamp(Number.isNaN(p) ? preDays : p, 0, 11)
+                setPreDays(v)
+                setPreDaysStr(String(v))
+              }}
+            />
+          </div>
         </div>
         <div className={styles.actions}>
           <button type="submit" disabled={loading}>{loading ? 'Calculating…' : 'Calculate'}</button>
