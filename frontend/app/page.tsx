@@ -119,13 +119,23 @@ export default function Page() {
 
   const originReferenceDate = useMemo(() => pickReferenceDate(travelStart), [travelStart])
   const destReferenceDate = useMemo(() => pickReferenceDate(travelEnd), [travelEnd])
-  const timezoneNames = useMemo(() => getAllTimeZoneNames(), [])
+  const [timezoneNames, setTimezoneNames] = useState<string[]>(() => getAllTimeZoneNames(true))
   const originTimeZoneOptions = useMemo(() => buildTimeZoneOptions(timezoneNames, originReferenceDate), [timezoneNames, originReferenceDate])
   const destTimeZoneOptions = useMemo(() => buildTimeZoneOptions(timezoneNames, destReferenceDate), [timezoneNames, destReferenceDate])
 
   useEffect(() => {
     // For beta: show on every reload for now
     setBetaOpen(true)
+  }, [])
+
+  useEffect(() => {
+    // Refresh with the full Intl-provided list once we are on the client
+    const names = getAllTimeZoneNames()
+    if (!names.length) return
+    setTimezoneNames(prev => {
+      if (prev.length === names.length && prev.every((v, i) => v === names[i])) return prev
+      return names
+    })
   }, [])
 
   useEffect(() => {
@@ -638,8 +648,8 @@ function groupEventsByUTCDate(events: any[]) {
 
 type TimeZoneOption = { value: string, label: string, offset: number | null }
 
-function getAllTimeZoneNames(): string[] {
-  if (typeof Intl !== 'undefined' && typeof (Intl as any).supportedValuesOf === 'function') {
+function getAllTimeZoneNames(forceFallback = false): string[] {
+  if (!forceFallback && typeof Intl !== 'undefined' && typeof (Intl as any).supportedValuesOf === 'function') {
     try {
       const values = (Intl as any).supportedValuesOf('timeZone') as string[]
       if (Array.isArray(values) && values.length) return values
