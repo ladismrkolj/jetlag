@@ -13,6 +13,16 @@
 .error{color:#b00020}
 .gridWrap{margin-top:24px; --label:140px; --gap:2px; --slot-min:16px; --slot-max:24px; --slot: clamp(var(--slot-min), calc((100% - var(--label) - (48 * var(--gap))) / 48), var(--slot-max));}
 .gridScroller{width:100%; overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; border:1px solid #eee; border-radius:10px; padding:0 calc(calc(var(--slot)/2 + 6px)) 4px calc(var(--slot)/2); background:#fff}
+.explanation{margin-top:32px;padding:24px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;line-height:1.65;color:#1f2937;box-shadow:0 6px 18px rgba(15,23,42,0.06)}
+.explanation h2{margin:0 0 16px;font-size:22px;font-weight:600;color:#111827}
+.explanation h3{margin:24px 0 12px;font-size:18px;font-weight:600;color:#111827}
+.explanation p{margin:0 0 16px}
+.explanation ul{margin:0 0 16px 20px;padding:0;list-style:disc}
+.explanation li{margin-bottom:8px}
+.explanation blockquote{margin:0 0 16px;padding:12px 16px;border-left:4px solid #d1d5db;background:#f9fafb;font-style:italic;color:#374151}
+.explanation code{background:#f3f4f6;padding:2px 4px;border-radius:4px;font-size:.95em;font-family:SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;color:#111827}
+.explanation a{color:#2563eb;text-decoration:underline}
+.explanation a:hover{text-decoration:none}
 .reportBtn{background:#111;color:#fff;border:0;padding:10px 14px;border-radius:10px;cursor:pointer}
 .reportBtn:disabled{opacity:.6;cursor:default}
 .siteFooter{margin:40px 0 16px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;border-top:1px solid #e5e7eb;padding-top:16px}

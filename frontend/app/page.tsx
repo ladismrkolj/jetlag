@@ -285,7 +285,36 @@ export default function Page() {
 
       {error && <p className={styles.error}>{error}</p>}
 
-      {events && <TimetableGrid events={events} originOffset={legendOriginOffset} destOffset={legendDestOffset} />}
+      {events && (
+        <TimetableGrid events={events} originOffset={legendOriginOffset} destOffset={legendDestOffset} />
+      )}
+
+      <section className={styles.explanation}>
+        <h2>Behind the Recommendations</h2>
+        <p>
+          This planner aligns your biological night with the destination by shifting sleep, light, and melatonin windows.
+          We approximate the daily circadian shift using the relation <code>deltaPhase ~= (deltaTZ * 60) / 90</code>, where <code>deltaPhase</code>
+          is the desired phase change (in minutes) and <code>deltaTZ</code> is the time-zone difference.
+        </p>
+        <h3>Key Assumptions</h3>
+        <ul>
+          <li>Sleep pressure follows a 24.2&nbsp;h rhythm informed by <a href="https://doi.org/10.1093/sleep/25.5.447" target="_blank" rel="noreferrer">Czeisler et&nbsp;al. (2002)</a>.</li>
+          <li>Bright-light exposure can advance circadian phase by ~<strong>30-45&nbsp;min</strong> per appropriately timed session <a href="https://www.nejm.org/doi/full/10.1056/NEJM200002103420607" target="_blank" rel="noreferrer">[NEJM]</a>.</li>
+          <li>Melatonin microdosing (<code>0.5-1&nbsp;mg</code>) is modeled after <a href="https://pubmed.ncbi.nlm.nih.gov/11739454/" target="_blank" rel="noreferrer">Lewy et&nbsp;al.</a>.</li>
+        </ul>
+        <blockquote>
+          "Circadian realignment hinges on controlling light, sleep, and chronobiotic timing." — <cite>American Academy of Sleep Medicine</cite>
+        </blockquote>
+        <h3>What the Schedule Optimizes</h3>
+        <p>
+          Each calculated half-hour slot is tagged with sleep (<code>S</code>), strategic darkness (<code>D</code>), or light (<code>L</code>) interventions.
+          We minimize transitions that violate your origin sleep boundaries while keeping total sleep opportunity &ge; <strong>7.0&nbsp;h</strong> per night.
+        </p>
+        <p>
+          For a deeper dive, see <a href="https://github.com/ladismrkolj/jetlag" target="_blank" rel="noreferrer">our modeling notes</a> and the
+          <a href="https://sleepeducation.org/jet-lag/" target="_blank" rel="noreferrer">AASM jet lag guidance</a>.
+        </p>
+      </section>
 
       {events && (
         <div className={styles.emojiBand}>
