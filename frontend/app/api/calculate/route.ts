@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { spawn } from 'child_process'
 import fs from 'fs'
 import path from 'path'
+import { google } from 'googleapis'
 
 type Inputs = {
   originOffset: number
@@ -29,6 +30,10 @@ export async function POST(req: NextRequest) {
     const t0 = Date.now()
     const events = await runPythonTimetable(body)
     const dt = Date.now() - t0
+    // Log asynchronously so user flow is not blocked if Sheets is unavailable
+    appendCalculationLog(req, body, { eventsCount: events?.length ?? 0, durationMs: dt }).catch((e) => {
+      if (process.env.CALC_DEBUG) console.warn('[calculate] log error', e)
+    })
     if (process.env.CALC_DEBUG) {
       console.log(`[calculate] returned ${Array.isArray(events)?events.length:'n/a'} events in ${dt}ms`)
     }
@@ -102,3 +107,59 @@ function runPythonTimetable(inp: Inputs): Promise<any[]> {
 // Ensure Node runtime (needed to spawn child processes)
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+
+async function appendCalculationLog(req: NextRequest, inputs: Inputs, stats: { eventsCount: number; durationMs: number }) {
+  const sheetId = process.env.GOOGLE_CALC_SHEETS_ID || process.env.GOOGLE_SHEETS_ID
+  const sheetTab = process.env.GOOGLE_CALC_SHEETS_TAB || 'Calculations'
+  const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
+  const privateKeyRaw = process.env.GOOGLE_PRIVATE_KEY
+  if (!sheetId || !clientEmail || !privateKeyRaw) return
+
+  const privateKey = privateKeyRaw.replace(/\\n/g, '\n')
+  const auth = new google.auth.JWT({
+    email: clientEmail,
+    key: privateKey,
+    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+  })
+  const sheets = google.sheets({ version: 'v4', auth })
+
+  const now = new Date().toISOString()
+  const rawForwardedFor = req.headers.get('x-forwarded-for') || ''
+  const externalIp = req.headers.get('x-real-ip') || rawForwardedFor.split(',')[0]?.trim() || ''
+  const ua = req.headers.get('user-agent') || ''
+  const referer = req.headers.get('referer') || ''
+  const country = req.headers.get('x-vercel-ip-country') || ''
+  const region = req.headers.get('x-vercel-ip-country-region') || ''
+  const city = req.headers.get('x-vercel-ip-city') || ''
+
+  const bool = (value: boolean) => (value ? 'Y' : 'N')
+
+  const values = [[
+    now,
+    inputs.originOffset,
+    inputs.destOffset,
+    inputs.preDays,
+    inputs.travelStart,
+    inputs.travelEnd,
+    bool(inputs.useMelatonin),
+    bool(inputs.useLightDark),
+    bool(inputs.useExercise),
+    bool(inputs.shiftOnTravelDays),
+    stats.eventsCount,
+    stats.durationMs,
+    ua,
+    externalIp,
+    rawForwardedFor,
+    country,
+    region,
+    city,
+    referer,
+  ]]
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: sheetId,
+    range: `${sheetTab}!A1`,
+    valueInputOption: 'RAW',
+    requestBody: { values },
+  })
+}
