@@ -13,9 +13,13 @@
 .error{color:#b00020}
 .gridWrap{margin-top:24px; --label:140px; --gap:2px; --slot-min:16px; --slot-max:24px; --slot: clamp(var(--slot-min), calc((100% - var(--label) - (48 * var(--gap))) / 48), var(--slot-max));}
 .gridScroller{width:100%; overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; border:1px solid #eee; border-radius:10px; padding:0 calc(calc(var(--slot)/2 + 6px)) 4px calc(var(--slot)/2); background:#fff}
-.footer{margin:24px 0;display:flex;justify-content:flex-end}
 .reportBtn{background:#111;color:#fff;border:0;padding:10px 14px;border-radius:10px;cursor:pointer}
 .reportBtn:disabled{opacity:.6;cursor:default}
+.siteFooter{margin:40px 0 16px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;border-top:1px solid #e5e7eb;padding-top:16px}
+.footerMeta{display:flex;flex-direction:column;gap:4px;font-size:12px;color:#4b5563}
+.footerText{line-height:1.5}
+.footerLink{color:inherit;text-decoration:underline}
+.footerLink:hover{text-decoration:none}
 .modalBackdrop{position:fixed;inset:0;background:rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;z-index:40}
 .modal{background:#fff;border-radius:12px;border:1px solid #e5e7eb;max-width:520px;width:92%;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,0.2)}
 .modal h3{margin:0 0 8px 0}

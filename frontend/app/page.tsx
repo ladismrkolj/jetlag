@@ -186,10 +186,16 @@ export default function Page() {
       })
       if (!res.ok) throw new Error(`API error: ${res.status}`)
       const data = await res.json()
-      setEvents(data.events)
-      // Update the displayed legends only upon successful calculation
-      setLegendOriginOffset(originOffset)
-      setLegendDestOffset(destOffset)
+      const receivedEvents = Array.isArray(data.events) ? data.events : null
+      setEvents(receivedEvents)
+      if (receivedEvents) {
+        // Update the displayed legends only upon successful calculation
+        setLegendOriginOffset(originOffset)
+        setLegendDestOffset(destOffset)
+      } else {
+        setLegendOriginOffset(originOffset)
+        setLegendDestOffset(destOffset)
+      }
       // reset any ad-hoc debug views if present
     } catch (err: any) {
       setError(err.message || 'Unknown error')
@@ -279,11 +285,17 @@ export default function Page() {
         </div>
       )}
 
-      <div className={styles.footer}>
+      <footer className={styles.siteFooter}>
+        <div className={styles.footerMeta}>
+          <span className={styles.footerText}>
+            © {new Date().getFullYear()} Jet Lag Planner. Licensed under{' '}
+            <a className={styles.footerLink} href="https://github.com/ladismrkolj/jetlag/blob/main/LICENSE" target="_blank" rel="noreferrer">Business Source License 1.1</a>.
+          </span>
+        </div>
         <button className={styles.reportBtn} type="button" onClick={() => { setReportOpen(true); setReportMessage(null) }}>
           Report a problem or suggestion
         </button>
-      </div>
+      </footer>
 
       {reportOpen && (
         <div className={styles.modalBackdrop} data-html2canvas-ignore onClick={() => !reportSending && setReportOpen(false)}>
