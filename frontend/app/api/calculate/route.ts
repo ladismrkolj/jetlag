@@ -16,15 +16,15 @@ type Inputs = {
   useMelatonin: boolean
   useLightDark: boolean
   useExercise: boolean
-  shiftOnTravelDays: boolean
   preDays: number
+  adjustmentStart: 'after_arrival' | 'travel_start' | 'precondition'
 }
 
 export async function POST(req: NextRequest) {
   const body = (await req.json()) as Inputs
   try {
     if (process.env.CALC_DEBUG) {
-      const dbgIn = JSON.stringify(body)
+    const dbgIn = JSON.stringify(body)
       console.log(`[calculate] input ${dbgIn.length} bytes`, dbgIn.slice(0, 1000))
     }
     const t0 = Date.now()
@@ -146,7 +146,7 @@ async function appendCalculationLog(req: NextRequest, inputs: Inputs, stats: { e
     bool(inputs.useMelatonin),
     bool(inputs.useLightDark),
     bool(inputs.useExercise),
-    bool(inputs.shiftOnTravelDays),
+    inputs.adjustmentStart,
     stats.eventsCount,
     stats.durationMs,
     ua,

@@ -3,6 +3,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react'
 import styles from './page.module.css'
 
 type TzOffset = number // in hours, e.g. -5 for New York winter
+type AdjustmentStartOption = 'after_arrival' | 'travel_start' | 'precondition'
 
 const OFFSET_MIN = -12
 const OFFSET_MAX = 14
@@ -66,6 +67,12 @@ const FALLBACK_TIMEZONES = [
   'Pacific/Kiritimati',
 ] as const
 
+const ADJUSTMENT_OPTIONS: { value: AdjustmentStartOption; label: string }[] = [
+  { value: 'after_arrival', label: 'After arrival' },
+  { value: 'travel_start', label: 'At start of travel' },
+  { value: 'precondition', label: 'Before travel (precondition days)' },
+]
+
 export default function Page() {
   // Helpers
   const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n))
@@ -91,7 +98,7 @@ export default function Page() {
   const [useMelatonin, setUseMelatonin] = useState(true)
   const [useLightDark, setUseLightDark] = useState(true)
   const [useExercise, setUseExercise] = useState(false)
-  const [shiftOnTravelDays, setShiftOnTravelDays] = useState(false)
+  const [adjustmentStart, setAdjustmentStart] = useState<AdjustmentStartOption>('after_arrival')
   const [preDays, setPreDays] = useState(2)
   const [preDaysStr, setPreDaysStr] = useState<string>(String(2))
   // Freeze legend offsets to last-calculated values
@@ -190,7 +197,7 @@ export default function Page() {
           useMelatonin,
           useLightDark,
           useExercise,
-          shiftOnTravelDays,
+          adjustmentStart,
           preDays,
         })
       })
@@ -254,7 +261,14 @@ export default function Page() {
           <label><input type="checkbox" checked={useMelatonin} onChange={e => setUseMelatonin(e.target.checked)} /> Melatonin</label>
           <label><input type="checkbox" checked={useLightDark} onChange={e => setUseLightDark(e.target.checked)} /> Light/Dark</label>
           <label><input type="checkbox" checked={useExercise} onChange={e => setUseExercise(e.target.checked)} /> Exercise</label>
-          <label title="Allow shifting/activities around travel when possible."><input type="checkbox" checked={shiftOnTravelDays} onChange={e => setShiftOnTravelDays(e.target.checked)} /> Shift on travel days</label>
+          <div className={styles.adjustmentControl}>
+            <label htmlFor="adjustmentStart">Start adjustments</label>
+            <select id="adjustmentStart" value={adjustmentStart} onChange={e => setAdjustmentStart(e.target.value as AdjustmentStartOption)}>
+              {ADJUSTMENT_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
           <div className={styles.preDaysControl}>
             <label htmlFor="preDaysInput">Precondition days</label>
             <input
@@ -264,7 +278,16 @@ export default function Page() {
               max={11}
               inputMode="numeric"
               value={preDaysStr}
-              onChange={e => setPreDaysStr(e.target.value)}
+              disabled={adjustmentStart !== 'precondition'}
+              onChange={e => {
+                const next = e.target.value
+                setPreDaysStr(next)
+                const parsed = parseInt(next || '', 10)
+                if (!Number.isNaN(parsed)) {
+                  const clamped = clamp(parsed, 0, 11)
+                  if (clamped !== preDays) setPreDays(clamped)
+                }
+              }}
               onBlur={() => {
                 const p = parseInt(preDaysStr || '', 10)
                 const v = clamp(Number.isNaN(p) ? preDays : p, 0, 11)
@@ -446,7 +469,7 @@ export default function Page() {
                     comment: reportComment,
                     inputs: {
                       originOffset, destOffset, originSleepStart, originSleepEnd, destSleepStart, destSleepEnd,
-                      travelStart, travelEnd, useMelatonin, useLightDark, useExercise, shiftOnTravelDays, preDays
+                      travelStart, travelEnd, useMelatonin, useLightDark, useExercise, adjustmentStart, preDays
                     },
                     data: events ?? null,
                     userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
@@ -522,7 +545,7 @@ export default function Page() {
                     comment:quickComment || null,
                     nameSuggestion:quickName || null,
                     email: (quickEmail || '').trim() || null,
-                    inputs:{ originOffset, destOffset, preDays, shiftOnTravelDays },
+                    inputs:{ originOffset, destOffset, preDays, adjustmentStart },
                     url: typeof location!=='undefined'?location.href:'unknown',
                   }
                   const res=await fetch('/api/report',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})

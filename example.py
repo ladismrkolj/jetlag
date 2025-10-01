@@ -28,7 +28,7 @@ def main():
         use_exercise=False,
         use_light_dark=False,
         precondition_days=0,
-        shift_on_travel_days=False
+        adjustment_start="after_arrival",
     )
 
     # Print a brief summary of raw events

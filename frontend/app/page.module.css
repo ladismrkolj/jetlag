@@ -5,8 +5,12 @@
 .row select{min-width:200px}
 .row label{font-size:12px;color:#444;margin-right:6px}
 .row input[type="number"],.row input[type="time"],.row input[type="datetime-local"],.row select{padding:6px 8px;border:1px solid #ddd;border-radius:8px;background:#fff}
+.adjustmentControl{display:flex;align-items:center;gap:6px}
+.adjustmentControl label{margin-right:0}
+.adjustmentControl select{min-width:200px}
 .preDaysControl{display:flex;align-items:center;gap:6px}
 .preDaysControl label{margin-right:0}
+.preDaysControl input:disabled{background:#f5f5f5;color:#888;cursor:not-allowed}
 .actions{display:flex;gap:8px;justify-content:flex-end}
 .actions button{background:#111;color:#fff;border:0;padding:10px 14px;border-radius:10px;cursor:pointer}
 .actions button:disabled{opacity:.6;cursor:default}

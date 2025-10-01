@@ -49,7 +49,7 @@ def main() -> int:
             use_exercise=bool(data["useExercise"]),
             use_light_dark=bool(data["useLightDark"]),
             precondition_days=int(data.get("preDays", 0)),
-            shift_on_travel_days=bool(data.get("shiftOnTravelDays", False)),
+            adjustment_start=str(data.get("adjustmentStart", "after_arrival")),
         )
 
         sys.stdout.write(json.dumps({"events": events}))

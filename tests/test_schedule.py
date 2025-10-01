@@ -47,6 +47,29 @@ def test_create_jet_lag_timetable_basic():
     assert any(e["event"] == "light" and isinstance(e["end"], str) for e in events)
 
 
+def test_adjustment_start_invalid():
+    ny = -5.
+    paris = 1.
+    travel_start = datetime(2024, 1, 1, 12, 0)
+    travel_end = datetime(2024, 1, 2, 6, 0)
+    with pytest.raises(ValueError):
+        create_jet_lag_timetable(
+            origin_timezone=ny,
+            destination_timezone=paris,
+            origin_sleep_start=time(23, 0),
+            origin_sleep_end=time(7, 0),
+            destination_sleep_start=time(23, 0),
+            destination_sleep_end=time(7, 0),
+            travel_start=travel_start,
+            travel_end=travel_end,
+            use_melatonin=True,
+            use_exercise=False,
+            use_light_dark=True,
+            precondition_days=0,
+            adjustment_start="invalid",
+        )
+
+
 def test_direction_and_gating_under_3h():
     # Under 3h diff → only Day 0 CBTmin
     tz0 = 0.0
