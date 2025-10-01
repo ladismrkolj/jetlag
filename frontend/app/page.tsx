@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import styles from './page.module.css'
 
 type TzOffset = number // in hours, e.g. -5 for New York winter
@@ -550,23 +550,10 @@ function hourLabels(offset: number) {
 function TimetableGrid({ events, originOffset, destOffset }: { events: any[], originOffset: number, destOffset: number }) {
   // Group events by UTC date; 48 columns (30-minute slots)
   const days = useMemo(() => groupEventsByUTCDate(events), [events])
-  const hoursUTC = Array.from({ length: 24 }, (_, i) => i)
   const hoursOrigin = hourLabels(originOffset)
   const hoursDest = hourLabels(destOffset)
 
-  const day0LocalDate = useMemo(() => {
-    // Day 0 is destination local date of travelEnd
-    try {
-      const travel = events.find(e => e && e.event === 'travel' && typeof e.end === 'string')
-      if (!travel) return days.length ? days[0].date : null
-      const teStr = String(travel.end)
-      const te = /Z$|[+-]\d{2}:\d{2}$/.test(teStr) ? new Date(teStr) : new Date(teStr + 'Z')
-      const local = new Date(te.getTime() + destOffset*3600*1000)
-      return local.toISOString().slice(0,10)
-    } catch {
-      return days.length ? days[0].date : null
-    }
-  }, [events, destOffset, days])
+  const formatHour = (hour: number) => hour.toString().padStart(2, '0')
 
   return (
     <div className={styles.gridWrap}>
@@ -580,48 +567,31 @@ function TimetableGrid({ events, originOffset, destOffset }: { events: any[], or
         <span className={styles.legendBox + ' ' + styles.travel}>Travel</span>
       </div>
       <div className={styles.gridScroller}>
-      {/* Top legend: Origin local time (shifted left by half slot) */}
-      <div className={styles.legendRow}>
-        <div className={styles.legendLabel}>Origin (UTC{originOffset >= 0 ? '+' : ''}{originOffset})</div>
-        {hoursOrigin.map((h, idx) => (
-          <div key={'o'+idx} className={styles.headerHour + ' ' + styles.headerHourShift} style={{ gridColumn: 'span 2' }}>
-            {`${h.toString().padStart(2,'0')}:00`}
-          </div>
-        ))}
-        <div className={styles.headerHourOverlay}>{`${((hoursOrigin[0] ?? 0).toString().padStart(2,'0'))}:00`}</div>
-      </div>
+        <div className={styles.legendRow}>
+          <div className={styles.timeRowLabel}>Origin (UTC{originOffset >= 0 ? '+' : ''}{originOffset})</div>
+          {hoursOrigin.map((h, idx) => (
+            <div key={`origin:${idx}`} className={styles.headerHour} style={{ gridColumn: 'span 2' }}>
+              {formatHour(h)}
+            </div>
+          ))}
+          <div className={styles.timeRowLabelEnd}>Origin (UTC{originOffset >= 0 ? '+' : ''}{originOffset})</div>
+        </div>
 
-      <div className={styles.grid}>
-        {days.map((d) => (
-          <>
-            <Row key={d.date} day={d} />
-            {day0LocalDate === d.date && (
-              <>
-                <div className={styles.legendLabel}>Destination (UTC{destOffset >= 0 ? '+' : ''}{destOffset})</div>
-                {hoursDest.map((h, idx) => (
-                  <div key={'d'+d.date+':'+idx} className={styles.headerHour + ' ' + styles.headerHourShift} style={{ gridColumn: 'span 2' }}>
-                    {`${h.toString().padStart(2,'0')}:00`}
-                    {idx === 23 && (
-                      <span className={styles.headerHourDupRight}>{`${((hoursDest[0] ?? 0).toString().padStart(2,'0'))}:00`}</span>
-                    )}
-                  </div>
-                ))}
-              </>
-            )}
-          </>
-        ))}
-      </div>
+        <div className={styles.grid}>
+          {days.map(day => (
+            <Row key={day.date} day={day} />
+          ))}
+        </div>
 
-      {/* Bottom legend: UTC (aligns with row columns), shifted left by half slot */}
-      <div className={styles.legendRow}>
-        <div className={styles.legendLabel}>UTC</div>
-        {hoursUTC.map((h, idx) => (
-          <div key={'u'+idx} className={styles.headerHour + ' ' + styles.headerHourShift} style={{ gridColumn: 'span 2' }}>
-            {`${h.toString().padStart(2,'0')}:00`}
-          </div>
-        ))}
-        <div className={styles.headerHourOverlay}>{`${((hoursUTC[0] ?? 0).toString().padStart(2,'0'))}:00`}</div>
-      </div>
+        <div className={styles.legendRow}>
+          <div className={styles.timeRowLabel}>Destination (UTC{destOffset >= 0 ? '+' : ''}{destOffset})</div>
+          {hoursDest.map((h, idx) => (
+            <div key={`dest:${idx}`} className={styles.headerHour} style={{ gridColumn: 'span 2' }}>
+              {formatHour(h)}
+            </div>
+          ))}
+          <div className={styles.timeRowLabelEnd}>Destination (UTC{destOffset >= 0 ? '+' : ''}{destOffset})</div>
+        </div>
       </div>
     </div>
   )
@@ -666,7 +636,7 @@ function DebugSlotsGrid({ slots, originOffset, destOffset }: { slots: any[], ori
           <>
             <div key={d.date+':label'} className={styles.rowLabel}>{d.date}</div>
             {d.slots.map((slot: any, i: number) => (
-              <Cell key={d.date+':'+i} slot={slot} />
+              <Cell key={d.date+':'+i} slot={slot} slotIndex={i} />
             ))}
           </>
         ))}
@@ -677,17 +647,19 @@ function DebugSlotsGrid({ slots, originOffset, destOffset }: { slots: any[], ori
 
 function Row({ day }: { day: ReturnType<typeof groupEventsByUTCDate>[number] }) {
   return (
-    <>
+    <Fragment>
       <div className={styles.rowLabel}>{day.date}</div>
       {day.slots.map((slot: any, i: number) => (
-        <Cell key={i} slot={slot} />
+        <Cell key={i} slot={slot} slotIndex={i} />
       ))}
-    </>
+      <div className={styles.rowLabelEnd}>{day.date}</div>
+    </Fragment>
   )
 }
 
-function Cell({ slot }: { slot: ReturnType<typeof groupEventsByUTCDate>[number]['slots'][number] }) {
+function Cell({ slot, slotIndex }: { slot: ReturnType<typeof groupEventsByUTCDate>[number]['slots'][number], slotIndex: number }) {
   const classes = [styles.cell]
+  if (slotIndex % 2 === 0) classes.push(styles.hourStart)
   if (slot.is_sleep) classes.push(styles.sleep)
   if (slot.is_light) classes.push(styles.light)
   if (slot.is_dark) classes.push(styles.dark)

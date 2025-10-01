@@ -30,10 +30,12 @@ export async function POST(req: NextRequest) {
     const t0 = Date.now()
     const events = await runPythonTimetable(body)
     const dt = Date.now() - t0
-    // Log asynchronously so user flow is not blocked if Sheets is unavailable
-    appendCalculationLog(req, body, { eventsCount: events?.length ?? 0, durationMs: dt }).catch((e) => {
-      if (process.env.CALC_DEBUG) console.warn('[calculate] log error', e)
-    })
+    // Log asynchronously after response so UI isn't delayed by Sheets write
+    setTimeout(() => {
+      appendCalculationLog(req, body, { eventsCount: events?.length ?? 0, durationMs: dt }).catch((e) => {
+        if (process.env.CALC_DEBUG) console.warn('[calculate] log error', e)
+      })
+    }, 0)
     if (process.env.CALC_DEBUG) {
       console.log(`[calculate] returned ${Array.isArray(events)?events.length:'n/a'} events in ${dt}ms`)
     }
