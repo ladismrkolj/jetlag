@@ -312,6 +312,14 @@ export default function Page() {
         <TimetableGrid events={events} originOffset={legendOriginOffset} destOffset={legendDestOffset} />
       )}
 
+      {events && (
+        <div className={styles.emojiBand}>
+          <button className={styles.emojiButton} aria-label="Love it" onClick={() => { setQuickRating('heart'); setQuickOpen(true); setQuickMessage(null) }}>❤️</button>
+          <button className={styles.emojiButton} aria-label="Great" onClick={() => { setQuickRating('party'); setQuickOpen(true); setQuickMessage(null) }}>🎉</button>
+          <button className={styles.emojiButton} aria-label="Not good" onClick={() => { setQuickRating('down'); setQuickOpen(true); setQuickMessage(null) }}>👎</button>
+        </div>
+      )}
+
       <section className={styles.explanation}>
         <h2>Behind the Recommendation</h2>
 
@@ -411,16 +419,6 @@ export default function Page() {
           <li>Burgess HJ, et al. Human phase response curves to three days of daily melatonin: 0.5 mg versus 3.0 mg. <em>J Clin Endocrinol Metab</em>. 2008;93(12):4655–4660. <a href="https://doi.org/10.1113/jphysiol.2007.143180" target="_blank" rel="noreferrer">Link</a></li>
         </ol>
       </section>
-
-
-      {events && (
-        <div className={styles.emojiBand}>
-          <button className={styles.emojiButton} aria-label="Love it" onClick={() => { setQuickRating('heart'); setQuickOpen(true); setQuickMessage(null) }}>❤️</button>
-          <button className={styles.emojiButton} aria-label="Great" onClick={() => { setQuickRating('party'); setQuickOpen(true); setQuickMessage(null) }}>🎉</button>
-          <button className={styles.emojiButton} aria-label="Not good" onClick={() => { setQuickRating('down'); setQuickOpen(true); setQuickMessage(null) }}>👎</button>
-        </div>
-      )}
-
       <footer className={styles.siteFooter}>
         <div className={styles.footerMeta}>
           <span className={styles.footerText}>
