@@ -346,7 +346,7 @@ def create_jet_lag_timetable(
     num_extra_before_days = 1
     num_extra_after_days = 2
     
-    midnight_start_of_calculations = midnight_for_datetime(travel_start_utc - timedelta(days=precondition_days+num_extra_before_days))
+    midnight_start_of_calculations = midnight_for_datetime(travel_start_utc - timedelta(days=effective_pre_days+num_extra_before_days))
     
     cbt_entries: List[Tuple[datetime, Tuple[Tuple]]] = []
     
@@ -365,6 +365,7 @@ def create_jet_lag_timetable(
         
         no_intervention_window = None if mode == "travel_start" else (travel_start_utc, travel_end_utc)
         
+        # TODO instead of skip shift just see if sleep or other interventions put pressure to move cbtmin...
         next_cbtmin, used_interventions = CBTobj.next_cbtmin(time, no_intervention_window=no_intervention_window, melatonin=use_melatonin, exercise=use_exercise, light=use_light_dark, dark=use_light_dark, precondition=is_precondition, skip_shift=(time < start_of_shift))
         cbt_entries.append((next_cbtmin, used_interventions))
         time = next_cbtmin
