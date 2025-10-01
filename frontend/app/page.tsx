@@ -290,31 +290,105 @@ export default function Page() {
       )}
 
       <section className={styles.explanation}>
-        <h2>Behind the Recommendations</h2>
+        <h2>Behind the Recommendation</h2>
+
+        <h3>What the App Is Trying to Do</h3>
         <p>
-          This planner aligns your biological night with the destination by shifting sleep, light, and melatonin windows.
-          We approximate the daily circadian shift using the relation <code>deltaPhase ~= (deltaTZ * 60) / 90</code>, where <code>deltaPhase</code>
-          is the desired phase change (in minutes) and <code>deltaTZ</code> is the time-zone difference.
+          Jet lag occurs when your internal circadian phase (the “body clock”) is out of sync with the new local time. 
+          The fastest way to reduce symptoms is to <strong>shift the clock</strong> efficiently while avoiding timing mistakes that push it the wrong way. 
+          Our scheduler uses three main levers:
         </p>
-        <h3>Key Assumptions</h3>
         <ul>
-          <li>Sleep pressure follows a 24.2&nbsp;h rhythm informed by <a href="https://doi.org/10.1093/sleep/25.5.447" target="_blank" rel="noreferrer">Czeisler et&nbsp;al. (2002)</a>.</li>
-          <li>Bright-light exposure can advance circadian phase by ~<strong>30-45&nbsp;min</strong> per appropriately timed session <a href="https://www.nejm.org/doi/full/10.1056/NEJM200002103420607" target="_blank" rel="noreferrer">[NEJM]</a>.</li>
-          <li>Melatonin microdosing (<code>0.5-1&nbsp;mg</code>) is modeled after <a href="https://pubmed.ncbi.nlm.nih.gov/11739454/" target="_blank" rel="noreferrer">Lewy et&nbsp;al.</a>.</li>
+          <li><strong>Light</strong> (seek vs avoid)</li>
+          <li><strong>Melatonin</strong> (dose and timing)</li>
+          <li><strong>Exercise</strong> (being active)</li>
         </ul>
-        <blockquote>
-          "Circadian realignment hinges on controlling light, sleep, and chronobiotic timing." — <cite>American Academy of Sleep Medicine</cite>
-        </blockquote>
-        <h3>What the Schedule Optimizes</h3>
         <p>
-          Each calculated half-hour slot is tagged with sleep (<code>S</code>), strategic darkness (<code>D</code>), or light (<code>L</code>) interventions.
-          We minimize transitions that violate your origin sleep boundaries while keeping total sleep opportunity &ge; <strong>7.0&nbsp;h</strong> per night.
+          All timings are derived from peer-reviewed phase-response curves (PRCs) to light and melatonin, 
+          with practical rules distilled from&nbsp;<a href="https://www.frontiersin.org/articles/10.3389/fphys.2019.00927/full" target="_blank" rel="noreferrer">Roach &amp; Sargent (2019)</a><sup>[1]</sup>.
+        </p>
+
+        <h3>Key Physiology (Why Timing Matters)</h3>
+        <ul>
+          <li>
+            <strong>CBTmin (core body temperature minimum)</strong> is the circadian “pivot.”  
+            Light in the ~12 h before CBTmin induces <strong>phase delays</strong>, while light in the ~12 h after CBTmin induces <strong>phase advances</strong>.  
+            The largest shifts occur with light ~3–6 h either side of CBTmin&nbsp;
+            (<a href="https://www.science.org/doi/10.1126/science.2734611" target="_blank" rel="noreferrer">Czeisler et al., 1989</a><sup>[2]</sup>; 
+            <a href="https://physoc.onlinelibrary.wiley.com/doi/10.1113/jphysiol.2003.040477" target="_blank" rel="noreferrer">Khalsa et al., 2003</a><sup>[3]</sup>).
+          </li>
+          <li>
+            <strong>Melatonin has its own PRC:</strong>  
+            Maximum <strong>advances</strong> occur when taken ~11.5 h before CBTmin (~6.5 h before habitual bedtime);  
+            maximum <strong>delays</strong> occur when taken ~4 h after CBTmin (~1 h after habitual wake).&nbsp; 
+            (<a href="https://doi.org/10.1113/jphysiol.2007.143180" target="_blank" rel="noreferrer">Burgess et al., 2008</a><sup>[4]</sup>)
+          </li>
+        </ul>
+
+        <h3>How the App Generates Your Plan</h3>
+        <ol>
+          <li><strong>Estimate starting phase:</strong> CBTmin is approximated as ~2–3 h before habitual wake time.</li>
+          <li><strong>Compute target shift:</strong> Direction and magnitude of time zone change determine whether phase advances (eastward) or delays (westward) are scheduled.</li>
+          <li><strong>Map PRCs to actions:</strong>  
+            <ul>
+              <li><strong>Light:</strong> Seek bright light in the appropriate PRC zone (advance vs delay) and avoid it in the opposite zone.</li>
+              <li><strong>Melatonin (optional):</strong> Scheduled near the PRC peak for the desired shift direction, avoiding dead zones.</li>
+              <li><strong>Exercise (optional):</strong> Scheduled near the PRC peak, placed to reinforce the desired shift.</li>
+            </ul>
+          </li>
+          <li><strong>Apply constraints:</strong> Daily phase shifts are capped (~1–2 h/day), and travel demands are integrated.</li>
+        </ol>
+
+        <h3>Why These Specific Timings Work</h3>
+        <p>
+          <strong>Eastward travel:</strong> Morning light (post-CBTmin) plus evening melatonin accelerates advances and blocks delays.  
+          <br />
+          <strong>Westward travel:</strong> Evening/night light (pre-CBTmin) plus morning light avoidance delay the clock efficiently. Melatonin may be used but is less critical.
+        </p>
+
+        <h3>Risks and Side Effects</h3>
+        <p>
+          <strong>Melatonin (3 mg immediate-release):</strong> Possible drowsiness, vivid dreams, headache, GI upset. 
+          May interact with anticoagulants, sedatives, antihypertensives, immunosuppressants. Not well studied in pregnancy, lactation, epilepsy, or autoimmune disease. 
+          Avoid activities requiring alertness if drowsy.
         </p>
         <p>
-          For a deeper dive, see <a href="https://github.com/ladismrkolj/jetlag" target="_blank" rel="noreferrer">our modeling notes</a> and the
-          <a href="https://sleepeducation.org/jet-lag/" target="_blank" rel="noreferrer">AASM jet lag guidance</a>.
+          <strong>Light:</strong> Nighttime light can impair sleep if mistimed.
         </p>
+        <p>
+          <strong>Sleep timing, naps, caffeine:</strong> Early-afternoon naps can reduce fatigue without harming night sleep. Caffeine aids alertness but does not shift the circadian phase.
+        </p>
+
+        <h3>Limitations</h3>
+        <ul>
+          <li>CBTmin is estimated, not measured—individual variation can cause mismatches.</li>
+          <li>PRC data are averages; responses vary by genetics, age, light history, season.</li>
+          <li>Light intensity and exposure vary in real-world conditions (clouds, indoor light).</li>
+          <li>Flight schedules and commitments can constrain optimal timing.</li>
+          <li>Evidence is based on specific melatonin doses/forms (3 mg immediate-release).</li>
+          <li>Not a medical device—consult a clinician for medical conditions.</li>
+        </ul>
+
+        <h3>Summary</h3>
+        <p>
+          Your personalized schedule is built by estimating your circadian phase (CBTmin), 
+          calculating the advance or delay required, and aligning light, melatonin, exercise and sleep 
+          to the most effective PRC zones while avoiding exposure that would counteract the shift. 
+          The underlying science is drawn from laboratory circadian studies and expert synthesis. 
+          Outcomes will vary between individuals.
+        </p>
+
+        <hr />
+
+        <h4>References</h4>
+        <ol>
+          <li>Roach GD, Sargent C. Interventions to Minimize Jet Lag After Westward and Eastward Flight. <em>Front Physiol</em>. 2019;10:927. <a href="https://www.frontiersin.org/articles/10.3389/fphys.2019.00927/full" target="_blank" rel="noreferrer">Link</a></li>
+          <li>Czeisler CA, et al. Bright light induction of strong (type 0) resetting of the human circadian pacemaker. <em>Science</em>. 1989;244(4910):1328–1333. <a href="https://www.science.org/doi/10.1126/science.2734611" target="_blank" rel="noreferrer">Link</a></li>
+          <li>Khalsa SB, et al. A phase response curve to single bright light pulses in human subjects. <em>J Physiol</em>. 2003;549(Pt 3):945–952. <a href="https://physoc.onlinelibrary.wiley.com/doi/10.1113/jphysiol.2003.040477" target="_blank" rel="noreferrer">Link</a></li>
+          <li>Burgess HJ, et al. Human phase response curves to three days of daily melatonin: 0.5 mg versus 3.0 mg. <em>J Clin Endocrinol Metab</em>. 2008;93(12):4655–4660. <a href="https://doi.org/10.1113/jphysiol.2007.143180" target="_blank" rel="noreferrer">Link</a></li>
+        </ol>
       </section>
+
 
       {events && (
         <div className={styles.emojiBand}>
