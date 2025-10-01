@@ -320,6 +320,33 @@ export default function Page() {
         </div>
       )}
 
+      {events && (
+        <section className={styles.tipsSection}>
+          <h2 className={styles.tipsTitle}>Quick Tips</h2>
+          <div className={styles.tipGrid}>
+            <article className={styles.tipCard}>
+              <h3>Light Windows</h3>
+              <p>When a slot says ideal for light, soak up brightness—get outside, sit near big windows, or use a light box if it’s dark. Stay in the light as long as it’s convenient.</p>
+            </article>
+            <article className={styles.tipCard}>
+              <h3>Dark Windows</h3>
+              <p>Ideal dark means cut light where you can. Close curtains, use a sleep mask, and if you’re awake wear dark or blue-blocking glasses (skip them when driving).</p>
+            </article>
+            <article className={styles.tipCard}>
+              <h3>Sleep Windows</h3>
+              <p>Ideal sleep windows flag great times to rest. On days without them, sleep when you need it—listen to your body.</p>
+            </article>
+            <article className={styles.tipCard}>
+              <h3>Travel Reset</h3>
+              <ul>
+                <li>On the flight: drink plenty of water, reach for fruit.</li>
+                <li>After landing: hydrate, take a quick shower, and grab a 20-minute nap if you need it.</li>
+              </ul>
+            </article>
+          </div>
+        </section>
+      )}
+
       <section className={styles.explanation}>
         <h2>Behind the Recommendation</h2>
 

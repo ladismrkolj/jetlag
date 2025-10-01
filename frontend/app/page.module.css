@@ -11,6 +11,15 @@
 .preDaysControl{display:flex;align-items:center;gap:6px}
 .preDaysControl label{margin-right:0}
 .preDaysControl input:disabled{background:#f5f5f5;color:#888;cursor:not-allowed}
+.tipsSection{margin:32px 0;padding:24px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 10px 26px rgba(15,23,42,0.05);color:#0f172a}
+.tipsTitle{margin:0 0 16px;font-size:20px;font-weight:600;letter-spacing:0.2px}
+.tipGrid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.tipCard{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:8px;box-shadow:0 6px 18px rgba(15,23,42,0.04)}
+.tipCard h3{margin:0;font-size:16px;font-weight:600;color:#0f172a}
+.tipCard p{margin:0;font-size:13px;line-height:1.5;color:#1f2937}
+.tipCard ul{margin:0;padding-left:18px;font-size:13px;line-height:1.5;color:#1f2937}
+.tipCard li{margin-bottom:6px}
+.tipCard li:last-child{margin-bottom:0}
 .actions{display:flex;gap:8px;justify-content:flex-end}
 .actions button{background:#111;color:#fff;border:0;padding:10px 14px;border-radius:10px;cursor:pointer}
 .actions button:disabled{opacity:.6;cursor:default}
