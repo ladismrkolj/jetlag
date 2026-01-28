@@ -31,6 +31,8 @@
   .svgGridContainer{overflow:visible;height:auto}
   .svgGrid{width:100%;height:auto}
   .printBannerQr{width:120px;height:120px}
+  .legend{print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  .legendBox::before{print-color-adjust:exact;-webkit-print-color-adjust:exact}
 }
 .printBanner{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 16px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;margin-bottom:16px}
 .printBannerText{display:flex;flex-direction:column;gap:4px;font-size:12px;color:#374151}
