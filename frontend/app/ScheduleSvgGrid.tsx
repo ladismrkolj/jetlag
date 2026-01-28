@@ -48,10 +48,7 @@ function formatHour(hour: number) {
   return hour.toString().padStart(2, '0')
 }
 
-function cellFill(slot: Slot) {
-  if (slot.is_travel) return COLORS.travel
-  if (slot.is_dark) return COLORS.dark
-  if (slot.is_light) return COLORS.light
+function baseFill(slot: Slot) {
   if (slot.is_sleep) return COLORS.sleep
   return COLORS.background
 }
@@ -131,10 +128,19 @@ export default function ScheduleSvgGrid({ days, originOffset, destOffset }: Sche
                 {day.slots.map((slot, slotIndex) => {
                   const x = leftLabelW + slotIndex * cellW
                   const y = topHeaderH + dayIndex * cellH
-                  const fill = cellFill(slot)
+                  const fill = baseFill(slot)
                   return (
                     <g key={`${day.date}:${slotIndex}`}>
                       <rect x={x} y={y} width={cellW} height={cellH} fill={fill} />
+                      {slot.is_travel && (
+                        <rect x={x} y={y} width={cellW} height={cellH} fill={COLORS.travel} />
+                      )}
+                      {slot.is_light && (
+                        <rect x={x} y={y} width={cellW} height={cellH} fill={COLORS.light} />
+                      )}
+                      {slot.is_dark && (
+                        <rect x={x} y={y} width={cellW} height={cellH} fill={COLORS.dark} />
+                      )}
                       {slot.is_exercise && (
                         <rect
                           x={x + 0.5}
@@ -153,29 +159,6 @@ export default function ScheduleSvgGrid({ days, originOffset, destOffset }: Sche
                           r={dotRadius}
                           fill={COLORS.marker}
                         />
-                      )}
-                      {slot.is_melatonin && (
-                        <g>
-                          <rect
-                            x={x + 2}
-                            y={y + cellH - badgeFont - badgePadding * 2 - 2}
-                            width={badgeFont + badgePadding * 2}
-                            height={badgeFont + badgePadding}
-                            rx={2}
-                            fill="#ffffffcc"
-                            stroke={COLORS.marker}
-                            strokeWidth={0.8}
-                          />
-                          <text
-                            x={x + 2 + badgePadding}
-                            y={y + cellH - badgePadding - 2}
-                            fontSize={badgeFont}
-                            fill="#b91c1c"
-                            fontWeight={700}
-                          >
-                            M
-                          </text>
-                        </g>
                       )}
                       {slot.is_travel && (
                         <g>
@@ -197,6 +180,29 @@ export default function ScheduleSvgGrid({ days, originOffset, destOffset }: Sche
                             fontWeight={700}
                           >
                             t
+                          </text>
+                        </g>
+                      )}
+                      {slot.is_melatonin && (
+                        <g>
+                          <rect
+                            x={x + 2}
+                            y={y + cellH - badgeFont - badgePadding * 2 - 2}
+                            width={badgeFont + badgePadding * 2}
+                            height={badgeFont + badgePadding}
+                            rx={2}
+                            fill="#ffffffcc"
+                            stroke={COLORS.marker}
+                            strokeWidth={0.8}
+                          />
+                          <text
+                            x={x + 2 + badgePadding}
+                            y={y + cellH - badgePadding - 2}
+                            fontSize={badgeFont}
+                            fill="#b91c1c"
+                            fontWeight={700}
+                          >
+                            M
                           </text>
                         </g>
                       )}
