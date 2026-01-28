@@ -1,6 +1,7 @@
 "use client"
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import styles from './page.module.css'
+import ScheduleSvgGrid from './ScheduleSvgGrid'
 
 type TzOffset = number // in hours, e.g. -5 for New York winter
 type AdjustmentStartOption = 'after_arrival' | 'travel_start' | 'precondition' | 'precondition_with_travel' 
@@ -592,17 +593,9 @@ export default function Page() {
   )
 }
 
-function hourLabels(offset: number) {
-  return Array.from({ length: 24 }, (_, h) => ((h + offset + 24) % 24))
-}
-
 function TimetableGrid({ events, originOffset, destOffset }: { events: any[], originOffset: number, destOffset: number }) {
   // Group events by UTC date; 48 columns (30-minute slots)
   const days = useMemo(() => groupEventsByUTCDate(events), [events])
-  const hoursOrigin = hourLabels(originOffset)
-  const hoursDest = hourLabels(destOffset)
-
-  const formatHour = (hour: number) => hour.toString().padStart(2, '0')
 
   return (
     <div className={styles.gridWrap}>
@@ -615,111 +608,7 @@ function TimetableGrid({ events, originOffset, destOffset }: { events: any[], or
         <span className={styles.legendBox + ' ' + styles.cbtmin}>CBTmin</span>
         <span className={styles.legendBox + ' ' + styles.travel}>Travel</span>
       </div>
-      <div className={styles.gridScroller}>
-        <div className={styles.legendRow}>
-          <div className={styles.timeRowLabel}>Origin (UTC{originOffset >= 0 ? '+' : ''}{originOffset})</div>
-          {hoursOrigin.map((h, idx) => (
-            <div key={`origin:${idx}`} className={styles.headerHour} style={{ gridColumn: 'span 2' }}>
-              {formatHour(h)}
-            </div>
-          ))}
-          <div className={styles.timeRowLabelEnd}>Origin (UTC{originOffset >= 0 ? '+' : ''}{originOffset})</div>
-        </div>
-
-        <div className={styles.grid}>
-          {days.map(day => (
-            <Row key={day.date} day={day} />
-          ))}
-        </div>
-
-        <div className={styles.legendRow}>
-          <div className={styles.timeRowLabel}>Destination (UTC{destOffset >= 0 ? '+' : ''}{destOffset})</div>
-          {hoursDest.map((h, idx) => (
-            <div key={`dest:${idx}`} className={styles.headerHour} style={{ gridColumn: 'span 2' }}>
-              {formatHour(h)}
-            </div>
-          ))}
-          <div className={styles.timeRowLabelEnd}>Destination (UTC{destOffset >= 0 ? '+' : ''}{destOffset})</div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function DebugSlotsGrid({ slots, originOffset, destOffset }: { slots: any[], originOffset: number, destOffset: number }) {
-  // Group provided slots by UTC date
-  const days = useMemo(() => {
-    const byDate = new Map<string, any[]>()
-    for (const s of slots) {
-      const d = String(s.start).slice(0,10)
-      if (!byDate.has(d)) byDate.set(d, [])
-      byDate.get(d)!.push(s)
-    }
-    return Array.from(byDate.entries()).map(([date, list]) => {
-      // Sort by start
-      list.sort((a,b) => String(a.start).localeCompare(String(b.start)))
-      return { date, slots: list }
-    })
-  }, [slots])
-
-  const hoursUTC = Array.from({ length: 24 }, (_, i) => i)
-  const hours = hoursUTC
-  return (
-    <div className={styles.gridWrap}>
-      <div className={styles.legend}>
-        <span className={styles.legendBox + ' ' + styles.sleep}>Sleep</span>
-        <span className={styles.legendBox + ' ' + styles.light}>Light</span>
-        <span className={styles.legendBox + ' ' + styles.dark}>Dark</span>
-        <span className={styles.legendBox + ' ' + styles.exercise}>Exercise</span>
-        <span className={styles.legendBox + ' ' + styles.melatonin}>Melatonin</span>
-        <span className={styles.legendBox + ' ' + styles.travel}>Travel</span>
-      </div>
-      <div className={styles.grid}>
-        <div className={styles.headerCell}></div>
-        {hours.map(h => (
-          <div key={h} className={styles.headerHour} style={{ gridColumn: 'span 2' }}>
-            {`${h.toString().padStart(2,'0')}:00`}
-          </div>
-        ))}
-        {days.map((d) => (
-          <>
-            <div key={d.date+':label'} className={styles.rowLabel}>{d.date}</div>
-            {d.slots.map((slot: any, i: number) => (
-              <Cell key={d.date+':'+i} slot={slot} slotIndex={i} />
-            ))}
-          </>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function Row({ day }: { day: ReturnType<typeof groupEventsByUTCDate>[number] }) {
-  return (
-    <Fragment>
-      <div className={styles.rowLabel}>{day.date}</div>
-      {day.slots.map((slot: any, i: number) => (
-        <Cell key={i} slot={slot} slotIndex={i} />
-      ))}
-      <div className={styles.rowLabelEnd}>{day.date}</div>
-    </Fragment>
-  )
-}
-
-function Cell({ slot, slotIndex }: { slot: ReturnType<typeof groupEventsByUTCDate>[number]['slots'][number], slotIndex: number }) {
-  const classes = [styles.cell]
-  if (slotIndex % 2 === 0) classes.push(styles.hourStart)
-  if (slot.is_sleep) classes.push(styles.sleep)
-  if (slot.is_light) classes.push(styles.light)
-  if (slot.is_dark) classes.push(styles.dark)
-  if (slot.is_travel) classes.push(styles.travel)
-  if (slot.is_exercise) classes.push(styles.exercise)
-  // CBTmin as red dot, Melatonin as 'M' marker
-  return (
-    <div className={classes.join(' ')}>
-      {slot.is_cbtmin && <span className={styles.dot} />}
-      {slot.is_melatonin && <span className={styles.mMark}>M</span>}
-      {slot.is_travel && <span className={styles.tMark}>t</span>}
+      <ScheduleSvgGrid days={days} originOffset={originOffset} destOffset={destOffset} />
     </div>
   )
 }
