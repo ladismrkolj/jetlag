@@ -141,12 +141,12 @@ class CBTmin:
             if abs(self.signed_difference()) > 3.0:
                 return 1.5 if not precondition else 1.0
             else:
-                return 1.5 if not precondition else 1.0
+                return 1.0 if not precondition else 0.5
         else:
             if abs(self.signed_difference()) > 3.0:
                 return 1.0 if not precondition else 0.0
             else:
-                return 1.0 if not precondition else 0.0
+                return 0.5 if not precondition else 0.0
     
     @classmethod
     def from_sleep(cls, origin_sleep_start, origin_sleep_end, dest_sleep_start, dest_sleep_end, shift_preset = "default"):
@@ -284,6 +284,7 @@ def create_jet_lag_timetable(
     use_melatonin: bool,
     use_exercise: bool,
     use_light_dark: bool,
+    ignore_travel_interventions: bool = False,
     precondition_days: int = 0,
     adjustment_start: str = "after_arrival",
 ) -> List[Dict[str, Any]]:
@@ -296,7 +297,7 @@ def create_jet_lag_timetable(
         any method -> 1.5h if diff>3h else 1h; no method -> 1h if diff>3h else 0.5h.
     - Adjustment start controlled by adjustment_start (after_arrival, travel_start, precondition).
     - Preconditioning days (in origin tz) apply only when adjustment_start="precondition".
-    - Travel interval interventions are skipped unless adjustment_start="travel_start".
+    - Travel interval interventions are skipped unless adjustment_start="travel_start" or ignore_travel_interventions=True.
     - Interventions emitted around CBTmin; intervention windows overlapping travel are skipped.
     - Sleep windows and travel interval included as events; all timestamps in UTC.
     """
@@ -342,35 +343,46 @@ def create_jet_lag_timetable(
         start_of_shift = midnight_for_datetime(travel_start_utc) - timedelta(days=effective_pre_days)
         
     CBTobj = CBTmin.from_sleep(origin_sleep_start_utc, origin_sleep_end_utc, destination_sleep_start_utc, destination_sleep_end_utc, shift_preset="default")
+    small_shift = abs(CBTobj.signed_difference()) < 3.0
     
-    num_extra_before_days = 1
-    num_extra_after_days = 2
-    
-    midnight_start_of_calculations = midnight_for_datetime(travel_start_utc - timedelta(days=effective_pre_days+num_extra_before_days))
+    num_extra_before_days = 0 if small_shift else 1
+    num_extra_after_days = 0 if small_shift else 2
+
+    day0_local_date = (travel_end_utc + timedelta(hours=destination_timezone)).date()
+    day0_start_utc = datetime.combine(day0_local_date, time(0, 0)) - timedelta(hours=destination_timezone)
+    if small_shift:
+        midnight_start_of_calculations = day0_start_utc
+    else:
+        midnight_start_of_calculations = midnight_for_datetime(travel_start_utc - timedelta(days=effective_pre_days + num_extra_before_days))
     
     cbt_entries: List[Tuple[datetime, Tuple[Tuple]]] = []
     
-    first_cbtmin, _ = CBTobj.next_cbtmin(midnight_start_of_calculations, no_intervention_window=(travel_start_utc, travel_end_utc), melatonin=use_melatonin, exercise=use_exercise, light=use_light_dark, dark=use_light_dark, precondition=False, skip_shift=True)
+    first_window = None if ignore_travel_interventions else (travel_start_utc, travel_end_utc)
+    first_cbtmin, _ = CBTobj.next_cbtmin(midnight_start_of_calculations, no_intervention_window=first_window, melatonin=use_melatonin, exercise=use_exercise, light=use_light_dark, dark=use_light_dark, precondition=False, skip_shift=True)
     cbt_entries.append((first_cbtmin, ((False, first_cbtmin), (False, first_cbtmin), (False, first_cbtmin), (False, first_cbtmin))))
     
-    time = first_cbtmin
-    i_ext = 0
-    while (abs(CBTobj.signed_difference()) > 1e-6) or i_ext < num_extra_after_days:
-        if abs(CBTobj.signed_difference()) < 1e-6:
-            i_ext += 1
-        if effective_pre_days > 0 and time > start_of_shift and time < travel_start_utc:
-            is_precondition = True 
-        else:
-            is_precondition = False
-        
-        no_intervention_window = None if mode == "travel_start" else (travel_start_utc, travel_end_utc)
-        
-        # TODO instead of skip shift just see if sleep or other interventions put pressure to move cbtmin...
-        next_cbtmin, used_interventions = CBTobj.next_cbtmin(time, no_intervention_window=no_intervention_window, melatonin=use_melatonin, exercise=use_exercise, light=use_light_dark, dark=use_light_dark, precondition=is_precondition, skip_shift=(time < start_of_shift))
-        cbt_entries.append((next_cbtmin, used_interventions))
-        time = next_cbtmin
+    if not small_shift:
+        cursor = first_cbtmin
+        i_ext = 0
+        while (abs(CBTobj.signed_difference()) > 1e-6) or i_ext < num_extra_after_days:
+            if abs(CBTobj.signed_difference()) < 1e-6:
+                i_ext += 1
+            if effective_pre_days > 0 and cursor > start_of_shift and cursor < travel_start_utc:
+                is_precondition = True 
+            else:
+                is_precondition = False
+            
+            no_intervention_window = None if (ignore_travel_interventions or mode == "travel_start") else (travel_start_utc, travel_end_utc)
+            
+            # TODO instead of skip shift just see if sleep or other interventions put pressure to move cbtmin...
+            next_cbtmin, used_interventions = CBTobj.next_cbtmin(cursor, no_intervention_window=no_intervention_window, melatonin=use_melatonin, exercise=use_exercise, light=use_light_dark, dark=use_light_dark, precondition=is_precondition, skip_shift=(cursor < start_of_shift))
+            cbt_entries.append((next_cbtmin, used_interventions))
+            cursor = next_cbtmin
         
     midnight_end_of_calculations = midnight_for_datetime(cbt_entries[-1][0] + timedelta(days=1))
+
+    def day_index_for(utc_dt: datetime) -> int:
+        return ((utc_dt + timedelta(hours=destination_timezone)).date() - day0_local_date).days
 
     intervention_events: List[Dict[str, Any]] = []
 
@@ -386,7 +398,7 @@ def create_jet_lag_timetable(
                     "is_exercise": False,
                     "is_sleep": False,
                     "is_travel": False,
-                    "day_index": None,
+                    "day_index": day_index_for(cbt_entries[i][0]),
                     "phase_direction": CBTobj.phase_direction,
                     "signed_initial_diff_hours": CBTobj.signed_difference(),
                 })
@@ -404,7 +416,7 @@ def create_jet_lag_timetable(
                         "is_exercise": False,
                         "is_sleep": False,
                         "is_travel": False,
-                        "day_index": None,
+                        "day_index": day_index_for(cbt_entries[i][1][0][1]),
                         "phase_direction": CBTobj.phase_direction,
                         "signed_initial_diff_hours": CBTobj.signed_difference(),
                     })
@@ -422,7 +434,7 @@ def create_jet_lag_timetable(
                         "is_exercise": True,
                         "is_sleep": False,
                         "is_travel": False,
-                        "day_index": None,
+                        "day_index": day_index_for(cbt_entries[i][1][1][1][0]),
                         "phase_direction": CBTobj.phase_direction,
                         "signed_initial_diff_hours": CBTobj.signed_difference(),
                     })
@@ -440,7 +452,7 @@ def create_jet_lag_timetable(
                         "is_exercise": False,
                         "is_sleep": False,
                         "is_travel": False,
-                        "day_index": None,
+                        "day_index": day_index_for(cbt_entries[i][1][2][1][0]),
                         "phase_direction": CBTobj.phase_direction,
                         "signed_initial_diff_hours": CBTobj.signed_difference(),
                     })
@@ -458,7 +470,7 @@ def create_jet_lag_timetable(
                         "is_exercise": False,
                         "is_sleep": False,
                         "is_travel": False,
-                        "day_index": None,
+                        "day_index": day_index_for(cbt_entries[i][1][3][1][0]),
                         "phase_direction": CBTobj.phase_direction,
                         "signed_initial_diff_hours": CBTobj.signed_difference(),
                     })
@@ -467,22 +479,21 @@ def create_jet_lag_timetable(
     # ---- Sleep windows ----
     sleep_windows: List[Tuple[datetime, datetime]] = []  # include day index for tagging
     
-    time = midnight_start_of_calculations
+    cursor = midnight_start_of_calculations
     sleep_dest = False
-    while time < midnight_end_of_calculations:
-        if sleep_dest is False:
-            s, e = next_interval(time, (origin_sleep_start_utc, origin_sleep_end_utc), filter_window=(travel_start_utc, travel_end_utc))
-            if s is None or e is None:
-                time += timedelta(days=1)
-                continue
-        if e > travel_start_utc or sleep_dest:
-            s, e = next_interval(time, (destination_sleep_start_utc, destination_sleep_end_utc), filter_window=(travel_start_utc, travel_end_utc))
-            sleep_dest = True
-            if s is None or e is None:
-                time += timedelta(days=1)
-                continue
+    while cursor < midnight_end_of_calculations:
+        if sleep_dest:
+            s, e = next_interval(cursor, (destination_sleep_start_utc, destination_sleep_end_utc), filter_window=(travel_start_utc, travel_end_utc))
+        else:
+            s, e = next_interval(cursor, (origin_sleep_start_utc, origin_sleep_end_utc), filter_window=(travel_start_utc, travel_end_utc))
+            if s is not None and e is not None and e > travel_start_utc:
+                sleep_dest = True
+                s, e = next_interval(cursor, (destination_sleep_start_utc, destination_sleep_end_utc), filter_window=(travel_start_utc, travel_end_utc))
+        if s is None or e is None:
+            cursor += timedelta(days=1)
+            continue
         sleep_windows.append((s, e))
-        time = e
+        cursor = e
         
 
     # ---- Assemble timeline events ----
@@ -501,7 +512,7 @@ def create_jet_lag_timetable(
             "is_exercise": False,
             "is_sleep": True,
             "is_travel": False,
-            "day_index": None,
+            "day_index": day_index_for(s),
             "phase_direction": CBTobj.phase_direction,
             "signed_initial_diff_hours": CBTobj.signed_difference(),
         })
@@ -518,7 +529,7 @@ def create_jet_lag_timetable(
         "is_exercise": False,
         "is_sleep": False,
         "is_travel": True,
-        "day_index": None,
+        "day_index": day_index_for(travel_start_utc),
         "phase_direction": CBTobj.phase_direction,
         "signed_initial_diff_hours": CBTobj.signed_difference(),
     })

@@ -90,6 +90,53 @@ def test_direction_and_gating_under_3h():
     assert cbtmins[0]["day_index"] == 0
 
 
+def test_ignore_travel_interventions_allows_intervention_during_travel():
+    origin = -5.0
+    dest = 1.0
+    travel_start = datetime(2024, 1, 1, 0, 0)
+    travel_end = datetime(2024, 1, 3, 0, 0)
+    base_args = dict(
+        origin_timezone=origin,
+        destination_timezone=dest,
+        origin_sleep_start=time(23, 0),
+        origin_sleep_end=time(7, 0),
+        destination_sleep_start=time(23, 0),
+        destination_sleep_end=time(7, 0),
+        travel_start=travel_start,
+        travel_end=travel_end,
+        use_melatonin=True,
+        use_exercise=False,
+        use_light_dark=True,
+        precondition_days=1,
+        adjustment_start="precondition",
+    )
+    events_blocked = create_jet_lag_timetable(
+        **base_args,
+        ignore_travel_interventions=False,
+    )
+    events_allowed = create_jet_lag_timetable(
+        **base_args,
+        ignore_travel_interventions=True,
+    )
+    travel_start_utc = travel_start - timedelta(hours=origin)
+    travel_end_utc = travel_end - timedelta(hours=dest)
+
+    def has_intervention_within_travel(events):
+        for event in events:
+            if not (event.get("is_melatonin") or event.get("is_light") or event.get("is_dark") or event.get("is_exercise")):
+                continue
+            start = event.get("start")
+            if not start:
+                continue
+            start_dt = datetime.fromisoformat(start.replace("Z", "+00:00"))
+            if travel_start_utc <= start_dt <= travel_end_utc:
+                return True
+        return False
+
+    assert not has_intervention_within_travel(events_blocked)
+    assert has_intervention_within_travel(events_allowed)
+
+
 def test_delay_direction_sign():
     # Choose tz and times so destination CBT is later → delay
     origin = -5.0  # UTC-5

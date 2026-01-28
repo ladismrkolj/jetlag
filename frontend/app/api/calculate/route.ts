@@ -16,6 +16,7 @@ type Inputs = {
   useMelatonin: boolean
   useLightDark: boolean
   useExercise: boolean
+  ignoreTravelInterventions: boolean
   preDays: number
   adjustmentStart: 'after_arrival' | 'travel_start' | 'precondition'
 }

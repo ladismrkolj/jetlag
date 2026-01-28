@@ -48,6 +48,7 @@ def main() -> int:
             use_melatonin=bool(data["useMelatonin"]),
             use_exercise=bool(data["useExercise"]),
             use_light_dark=bool(data["useLightDark"]),
+            ignore_travel_interventions=bool(data.get("ignoreTravelInterventions", False)),
             precondition_days=int(data.get("preDays", 0)),
             adjustment_start=str(data.get("adjustmentStart", "after_arrival")),
         )

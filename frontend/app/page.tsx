@@ -98,6 +98,7 @@ export default function Page() {
   const [useMelatonin, setUseMelatonin] = useState(true)
   const [useLightDark, setUseLightDark] = useState(true)
   const [useExercise, setUseExercise] = useState(false)
+  const [ignoreTravelInterventions, setIgnoreTravelInterventions] = useState(false)
   const [adjustmentStart, setAdjustmentStart] = useState<AdjustmentStartOption>('after_arrival')
   const [preDays, setPreDays] = useState(2)
   const [preDaysStr, setPreDaysStr] = useState<string>(String(2))
@@ -197,6 +198,7 @@ export default function Page() {
           useMelatonin,
           useLightDark,
           useExercise,
+          ignoreTravelInterventions,
           adjustmentStart,
           preDays,
         })
@@ -261,6 +263,14 @@ export default function Page() {
           <label><input type="checkbox" checked={useMelatonin} onChange={e => setUseMelatonin(e.target.checked)} /> Melatonin</label>
           <label><input type="checkbox" checked={useLightDark} onChange={e => setUseLightDark(e.target.checked)} /> Light/Dark</label>
           <label><input type="checkbox" checked={useExercise} onChange={e => setUseExercise(e.target.checked)} /> Exercise</label>
+          <button
+            type="button"
+            className={`${styles.toggleButton} ${ignoreTravelInterventions ? styles.toggleButtonActive : ''}`}
+            aria-pressed={ignoreTravelInterventions}
+            onClick={() => setIgnoreTravelInterventions(prev => !prev)}
+          >
+            Ignore travel for interventions
+          </button>
           <div className={styles.adjustmentControl}>
             <label htmlFor="adjustmentStart">Start adjustments</label>
             <select id="adjustmentStart" value={adjustmentStart} onChange={e => setAdjustmentStart(e.target.value as AdjustmentStartOption)}>
@@ -494,7 +504,7 @@ export default function Page() {
                     comment: reportComment,
                     inputs: {
                       originOffset, destOffset, originSleepStart, originSleepEnd, destSleepStart, destSleepEnd,
-                      travelStart, travelEnd, useMelatonin, useLightDark, useExercise, adjustmentStart, preDays
+                      travelStart, travelEnd, useMelatonin, useLightDark, useExercise, ignoreTravelInterventions, adjustmentStart, preDays
                     },
                     data: events ?? null,
                     userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
