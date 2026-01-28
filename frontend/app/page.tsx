@@ -242,7 +242,8 @@ export default function Page() {
         />
       </div>
       <a className={styles.bizLink} href="mailto:info@lysiyo.com?subject=Jet%20Lag%20Planner%20for%20Business">
-        Want to use this in your business? Contact us
+        <span className={styles.bizLabel}>Want to use this in your business? Contact us</span>
+        <span className={styles.bizEmail}>info@lysiyo.com</span>
       </a>
       <form className={styles.form} onSubmit={onSubmit}>
         <div className={styles.row}>
@@ -476,11 +477,13 @@ export default function Page() {
               {SITE_URL.replace('https://', '')}
             </a>
           </div>
+          <div className={styles.footerShare}>
+            <span className={styles.footerLabel}>GitHub:</span>
+            <a className={styles.footerLink} href="https://github.com/ladismrkolj/jetlag" target="_blank" rel="noreferrer">
+              ladismrkolj/jetlag
+            </a>
+          </div>
         </div>
-        <a className={styles.githubButton} href="https://github.com/ladismrkolj/jetlag" target="_blank" rel="noreferrer">
-          <span className={styles.githubLabel}>View on GitHub</span>
-          <span className={styles.printEmail}>info@lysiyo.com</span>
-        </a>
         <button className={styles.reportBtn} type="button" onClick={() => { setReportOpen(true); setReportMessage(null) }}>
           Report a problem or suggestion
         </button>
