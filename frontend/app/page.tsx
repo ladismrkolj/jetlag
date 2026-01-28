@@ -3,7 +3,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react'
 import styles from './page.module.css'
 
 type TzOffset = number // in hours, e.g. -5 for New York winter
-type AdjustmentStartOption = 'after_arrival' | 'travel_start' | 'precondition'
+type AdjustmentStartOption = 'after_arrival' | 'travel_start' | 'precondition' | 'precondition_with_travel' 
 
 const OFFSET_MIN = -12
 const OFFSET_MAX = 14
@@ -71,6 +71,7 @@ const ADJUSTMENT_OPTIONS: { value: AdjustmentStartOption; label: string }[] = [
   { value: 'after_arrival', label: 'After arrival' },
   { value: 'travel_start', label: 'At start of travel' },
   { value: 'precondition', label: 'Before travel (precondition days)' },
+  { value: 'precondition_with_travel', label: 'Before travel (precondition days) incl. travel' },
 ]
 
 export default function Page() {
@@ -278,7 +279,7 @@ export default function Page() {
               max={11}
               inputMode="numeric"
               value={preDaysStr}
-              disabled={adjustmentStart !== 'precondition'}
+              disabled={!['precondition', 'precondition_with_travel'].includes(adjustmentStart)}
               onChange={e => {
                 const next = e.target.value
                 setPreDaysStr(next)

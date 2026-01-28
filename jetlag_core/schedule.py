@@ -294,7 +294,7 @@ def create_jet_lag_timetable(
     - Day 0 = date (in destination tz) of travel_end; no shift applied on Day 0.
     - Post-arrival daily shift magnitude:
         any method -> 1.5h if diff>3h else 1h; no method -> 1h if diff>3h else 0.5h.
-    - Adjustment start controlled by adjustment_start (after_arrival, travel_start, precondition).
+    - Adjustment start controlled by adjustment_start (after_arrival, travel_start, precondition, precondition_with_travel).
     - Preconditioning days (in origin tz) apply only when adjustment_start="precondition".
     - Travel interval interventions are skipped unless adjustment_start="travel_start".
     - Interventions emitted around CBTmin; intervention windows overlapping travel are skipped.
@@ -308,6 +308,8 @@ def create_jet_lag_timetable(
 
     travel_start_utc = travel_start - timedelta(hours=origin_timezone)
     travel_end_utc = travel_end - timedelta(hours=destination_timezone)
+    if travel_end_utc <= travel_start_utc:
+        raise ValueError(f"Travel end is before start: {travel_start_utc, travel_end_utc}")
 
     # Day 0 is destination local date of travel_end
     #day0_dest_local_date = travel_end.astimezone(destination_timezone).date()
@@ -326,31 +328,33 @@ def create_jet_lag_timetable(
 
     # Everything works around the end of travel. This is the fixed point everything is relative to.
 
-    allowed_adjustment_modes = {"after_arrival", "travel_start", "precondition"}
+    allowed_adjustment_modes = {"after_arrival", "travel_start", "precondition", "precondition_with_travel"}
     mode = (adjustment_start or "after_arrival").lower()
     if mode not in allowed_adjustment_modes:
         raise ValueError(f"invalid adjustment_start: {adjustment_start}")
 
     precondition_days = max(int(precondition_days), 0)
-    effective_pre_days = precondition_days if mode == "precondition" else 0
+    effective_pre_days = precondition_days if (mode == "precondition" or mode == "precondition_with_travel") else 0
 
     if mode == "after_arrival":
         start_of_shift = travel_end_utc
     elif mode == "travel_start":
         start_of_shift = travel_start_utc
-    else:  # precondition
-        start_of_shift = midnight_for_datetime(travel_start_utc) - timedelta(days=effective_pre_days)
+    else:  # precondition relative to local time
+        start_of_shift = midnight_for_datetime(travel_start) - timedelta(days=effective_pre_days) - timedelta(hours=origin_timezone)
         
     CBTobj = CBTmin.from_sleep(origin_sleep_start_utc, origin_sleep_end_utc, destination_sleep_start_utc, destination_sleep_end_utc, shift_preset="default")
     
-    num_extra_before_days = 1
+    num_extra_before_days = 2
     num_extra_after_days = 2
     
     midnight_start_of_calculations = midnight_for_datetime(travel_start_utc - timedelta(days=effective_pre_days+num_extra_before_days))
     
     cbt_entries: List[Tuple[datetime, Tuple[Tuple]]] = []
     
-    first_cbtmin, _ = CBTobj.next_cbtmin(midnight_start_of_calculations, no_intervention_window=(travel_start_utc, travel_end_utc), melatonin=use_melatonin, exercise=use_exercise, light=use_light_dark, dark=use_light_dark, precondition=False, skip_shift=True)
+    no_intervention_window = None if (mode == "travel_start" or mode == "precondition_with_travel") else (travel_start_utc, travel_end_utc)
+
+    first_cbtmin, _ = CBTobj.next_cbtmin(midnight_start_of_calculations, no_intervention_window=no_intervention_window, melatonin=use_melatonin, exercise=use_exercise, light=use_light_dark, dark=use_light_dark, precondition=False, skip_shift=True)
     cbt_entries.append((first_cbtmin, ((False, first_cbtmin), (False, first_cbtmin), (False, first_cbtmin), (False, first_cbtmin))))
     
     time = first_cbtmin
@@ -358,12 +362,10 @@ def create_jet_lag_timetable(
     while (abs(CBTobj.signed_difference()) > 1e-6) or i_ext < num_extra_after_days:
         if abs(CBTobj.signed_difference()) < 1e-6:
             i_ext += 1
-        if effective_pre_days > 0 and time > start_of_shift and time < travel_start_utc:
+        if (mode == "travel_start" or mode == "precondition_with_travel") and time > start_of_shift and time < travel_start_utc:
             is_precondition = True 
         else:
             is_precondition = False
-        
-        no_intervention_window = None if mode == "travel_start" else (travel_start_utc, travel_end_utc)
         
         # TODO instead of skip shift just see if sleep or other interventions put pressure to move cbtmin...
         next_cbtmin, used_interventions = CBTobj.next_cbtmin(time, no_intervention_window=no_intervention_window, melatonin=use_melatonin, exercise=use_exercise, light=use_light_dark, dark=use_light_dark, precondition=is_precondition, skip_shift=(time < start_of_shift))
