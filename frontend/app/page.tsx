@@ -12,6 +12,7 @@ const OFFSET_STEP = 0.25
 
 const DEFAULT_ORIGIN_TZ = 'America/New_York'
 const DEFAULT_DEST_TZ = 'Europe/Paris'
+const SITE_URL = 'https://jetlag.jumpingcrab.com'
 
 const FALLBACK_TIMEZONES = [
   'Pacific/Midway',
@@ -228,6 +229,18 @@ export default function Page() {
   return (
     <main className={styles.main}>
       <h1 className={styles.title}>Jet Lag Planner</h1>
+      <div className={styles.printBanner}>
+        <div className={styles.printBannerText}>
+          <strong>Jet Lag Planner</strong>
+          <span>jetlag.jumpingcrab.com</span>
+        </div>
+        <img
+          className={styles.printBannerQr}
+          src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(SITE_URL)}`}
+          alt="QR code for jetlag.jumpingcrab.com"
+          loading="lazy"
+        />
+      </div>
       <form className={styles.form} onSubmit={onSubmit}>
         <div className={styles.row}>
           <label>Origin time zone</label>
@@ -454,6 +467,12 @@ export default function Page() {
             © {new Date().getFullYear()} Jet Lag Planner. Licensed under{' '}
             <a className={styles.footerLink} href="https://github.com/ladismrkolj/jetlag/blob/main/LICENSE" target="_blank" rel="noreferrer">Business Source License 1.1</a>.
           </span>
+          <div className={styles.footerShare}>
+            <span className={styles.footerLabel}>Share:</span>
+            <a className={styles.footerLink} href={SITE_URL} target="_blank" rel="noreferrer">
+              {SITE_URL.replace('https://', '')}
+            </a>
+          </div>
         </div>
         <button className={styles.reportBtn} type="button" onClick={() => { setReportOpen(true); setReportMessage(null) }}>
           Report a problem or suggestion
