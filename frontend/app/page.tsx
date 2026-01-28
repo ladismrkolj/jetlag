@@ -477,6 +477,9 @@ export default function Page() {
             </a>
           </div>
         </div>
+        <a className={styles.githubButton} href="https://github.com/ladismrkolj/jetlag" target="_blank" rel="noreferrer">
+          View on GitHub
+        </a>
         <button className={styles.reportBtn} type="button" onClick={() => { setReportOpen(true); setReportMessage(null) }}>
           Report a problem or suggestion
         </button>
