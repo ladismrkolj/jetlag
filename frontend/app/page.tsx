@@ -12,7 +12,7 @@ const OFFSET_STEP = 0.25
 
 const DEFAULT_ORIGIN_TZ = 'America/New_York'
 const DEFAULT_DEST_TZ = 'Europe/Paris'
-const SITE_URL = 'https://jetlag.jumpingcrab.com'
+const SITE_URL = 'https://jetlag.lysiyo.com'
 
 const FALLBACK_TIMEZONES = [
   'Pacific/Midway',
@@ -231,13 +231,13 @@ export default function Page() {
       <div className={styles.printBanner}>
         <div className={styles.printBannerText}>
           <strong className={styles.printBannerTitle}>Jet Lag Planner</strong>
-          <span>jetlag.jumpingcrab.com</span>
+          <span>jetlag.lysiyo.com</span>
           <span>Scan to plan your next trip.</span>
         </div>
         <img
           className={styles.printBannerQr}
           src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(SITE_URL)}`}
-          alt="QR code for jetlag.jumpingcrab.com"
+          alt="QR code for jetlag.lysiyo.com"
           loading="lazy"
         />
       </div>

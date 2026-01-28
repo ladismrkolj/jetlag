@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { consentEventName, readStoredConsent } from './analyticsConsent'
 
 const googleAnalyticsId = 'G-KS1XTLYRTF'
+const analyticsDomain = 'jetlag.lysiyo.com'
 
 export default function Analytics() {
   const [hasConsent, setHasConsent] = useState(false)
@@ -42,7 +43,7 @@ export default function Analytics() {
 function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
 
-gtag('config', '${googleAnalyticsId}');`}
+gtag('config', '${googleAnalyticsId}', { cookie_domain: '${analyticsDomain}' });`}
       </Script>
     </>
   )
