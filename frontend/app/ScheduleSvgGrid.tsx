@@ -99,15 +99,17 @@ export default function ScheduleSvgGrid({ days, originOffset, destOffset }: Sche
   const height = size.height
 
   const leftLabelW = clamp(width * 0.18, 80, 140)
+  const minCellW = 16
+  const minGridW = NUM_SLOTS * minCellW
+  const svgWidth = Math.max(width, leftLabelW + minGridW)
   const topHeaderH = clamp(height * 0.12, 30, 60)
   const bottomHeaderH = clamp(height * 0.1, 26, 50)
-  const gridW = Math.max(0, width - leftLabelW)
+  const gridW = Math.max(0, svgWidth - leftLabelW)
   const gridH = Math.max(0, height - topHeaderH - bottomHeaderH)
   const cellW = gridW / NUM_SLOTS
   const cellH = numDays ? gridH / numDays : 0
 
   const showMinorLines = cellW >= 10
-  const hourLabelStep = cellW * 2 >= 42 ? 1 : cellW * 4 >= 42 ? 2 : 4
   const shortDayLabels = cellH < 18 || leftLabelW < 95
 
   const headerFont = clamp(cellH * 0.6, 9, 12)
@@ -120,8 +122,8 @@ export default function ScheduleSvgGrid({ days, originOffset, destOffset }: Sche
 
   return (
     <div className={styles.svgGridContainer} ref={ref}>
-      <svg className={styles.svgGrid} role="img" aria-label="Schedule grid" width="100%" height="100%">
-        <rect x={0} y={0} width={width} height={height} fill={COLORS.background} />
+      <svg className={styles.svgGrid} role="img" aria-label="Schedule grid" width={svgWidth} height={height}>
+        <rect x={0} y={0} width={svgWidth} height={height} fill={COLORS.background} />
         {gridW > 0 && gridH > 0 && numDays > 0 && (
           <>
             {days.map((day, dayIndex) => (
@@ -275,7 +277,6 @@ export default function ScheduleSvgGrid({ days, originOffset, destOffset }: Sche
             </text>
 
             {hoursOrigin.map((h, idx) => {
-              if (idx % hourLabelStep !== 0) return null
               const x = leftLabelW + idx * 2 * cellW + cellW
               return (
                 <text
@@ -305,7 +306,6 @@ export default function ScheduleSvgGrid({ days, originOffset, destOffset }: Sche
             </text>
 
             {hoursDest.map((h, idx) => {
-              if (idx % hourLabelStep !== 0) return null
               const x = leftLabelW + idx * 2 * cellW + cellW
               return (
                 <text
