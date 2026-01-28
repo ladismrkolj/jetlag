@@ -228,10 +228,9 @@ export default function Page() {
 
   return (
     <main className={styles.main}>
-      <h1 className={styles.title}>Jet Lag Planner</h1>
       <div className={styles.printBanner}>
         <div className={styles.printBannerText}>
-          <strong>Jet Lag Planner</strong>
+          <strong className={styles.printBannerTitle}>Jet Lag Planner</strong>
           <span>jetlag.jumpingcrab.com</span>
           <span>Scan to plan your next trip.</span>
         </div>
@@ -242,6 +241,9 @@ export default function Page() {
           loading="lazy"
         />
       </div>
+      <a className={styles.bizLink} href="mailto:info@lysiyo.com?subject=Jet%20Lag%20Planner%20for%20Business">
+        Want to use this in your business? Contact us
+      </a>
       <form className={styles.form} onSubmit={onSubmit}>
         <div className={styles.row}>
           <label>Origin time zone</label>
