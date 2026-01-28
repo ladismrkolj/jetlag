@@ -233,6 +233,7 @@ export default function Page() {
         <div className={styles.printBannerText}>
           <strong>Jet Lag Planner</strong>
           <span>jetlag.jumpingcrab.com</span>
+          <span>Scan to plan your next trip.</span>
         </div>
         <img
           className={styles.printBannerQr}
