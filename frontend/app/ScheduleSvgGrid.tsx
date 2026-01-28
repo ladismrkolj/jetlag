@@ -99,8 +99,8 @@ export default function ScheduleSvgGrid({ days, originOffset, destOffset }: Sche
   const minCellW = 16
   const minGridW = NUM_SLOTS * minCellW
   const svgWidth = Math.max(width, leftLabelW + minGridW)
-  const topHeaderH = clamp(height * 0.12, 30, 60)
-  const bottomHeaderH = clamp(height * 0.1, 26, 50)
+  const topHeaderH = clamp(height * 0.1, 26, 52)
+  const bottomHeaderH = clamp(height * 0.08, 24, 46)
   const gridW = Math.max(0, svgWidth - leftLabelW)
   const gridH = Math.max(0, height - topHeaderH - bottomHeaderH)
   const cellW = gridW / NUM_SLOTS
@@ -109,7 +109,8 @@ export default function ScheduleSvgGrid({ days, originOffset, destOffset }: Sche
   const showMinorLines = cellW >= 10
   const shortDayLabels = cellH < 18 || leftLabelW < 95
 
-  const headerFont = clamp(cellH * 0.72, 10, 14)
+  const headerFont = clamp(cellH * 0.66, 9, 12)
+  const headerLineGap = headerFont * 0.3
   const labelFont = clamp(cellH * 0.6, 10, 12)
   const timeFont = clamp(cellH * 0.6, 9, 11)
 
@@ -292,8 +293,8 @@ export default function ScheduleSvgGrid({ days, originOffset, destOffset }: Sche
               dominantBaseline="middle"
               fontWeight={600}
             >
-              <tspan x={8} dy={-headerFont * 0.35}>Origin</tspan>
-              <tspan x={8} dy={headerFont * 0.8}>(UTC{originOffset >= 0 ? '+' : ''}{originOffset})</tspan>
+              <tspan x={8} dy={-(headerFont * 0.5 + headerLineGap / 2)}>Origin</tspan>
+              <tspan x={8} dy={headerFont + headerLineGap}>(UTC{originOffset >= 0 ? '+' : ''}{originOffset})</tspan>
             </text>
 
             {hoursOrigin.map((h, idx) => {
@@ -322,8 +323,8 @@ export default function ScheduleSvgGrid({ days, originOffset, destOffset }: Sche
               dominantBaseline="middle"
               fontWeight={600}
             >
-              <tspan x={8} dy={-headerFont * 0.35}>Destination</tspan>
-              <tspan x={8} dy={headerFont * 0.8}>(UTC{destOffset >= 0 ? '+' : ''}{destOffset})</tspan>
+              <tspan x={8} dy={-(headerFont * 0.5 + headerLineGap / 2)}>Destination</tspan>
+              <tspan x={8} dy={headerFont + headerLineGap}>(UTC{destOffset >= 0 ? '+' : ''}{destOffset})</tspan>
             </text>
 
             {hoursDest.map((h, idx) => {
