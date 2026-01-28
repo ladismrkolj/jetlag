@@ -120,7 +120,15 @@ export default function ScheduleSvgGrid({ days, originOffset, destOffset }: Sche
 
   return (
     <div className={styles.svgGridContainer} ref={ref}>
-      <svg className={styles.svgGrid} role="img" aria-label="Schedule grid" width={svgWidth} height={height}>
+      <svg
+        className={styles.svgGrid}
+        role="img"
+        aria-label="Schedule grid"
+        width={svgWidth}
+        height={height}
+        viewBox={`0 0 ${svgWidth} ${height}`}
+        preserveAspectRatio="xMinYMin meet"
+      >
         <rect x={0} y={0} width={svgWidth} height={height} fill={COLORS.background} />
         {gridW > 0 && gridH > 0 && numDays > 0 && (
           <>
