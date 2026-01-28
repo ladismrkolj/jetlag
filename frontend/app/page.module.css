@@ -28,9 +28,18 @@
 .svgGridContainer{width:100%;height:clamp(320px,70vh,820px);border:1px solid #eee;border-radius:10px;background:#fff;overflow-x:auto;overflow-y:hidden}
 .svgGrid{height:100%;display:block}
 @media print{
+  .main{padding:12px}
+  .form{gap:8px;padding:10px;border-radius:10px}
+  .row{gap:6px}
+  .row label{font-size:10px}
+  .row input[type="number"],.row input[type="time"],.row input[type="datetime-local"],.row select{padding:4px 6px;font-size:11px}
+  .adjustmentControl select,.row select{min-width:160px}
+  .printBanner{gap:10px;padding:8px 12px;margin-bottom:10px}
+  .printBannerText{font-size:10px}
+  .printBannerTitle{font-size:14px}
+  .printBannerQr{width:80px;height:80px}
   .svgGridContainer{overflow:visible;height:auto}
   .svgGrid{width:100%;height:auto}
-  .printBannerQr{width:120px;height:120px}
   .legend{print-color-adjust:exact;-webkit-print-color-adjust:exact}
   .legendBox::before{print-color-adjust:exact;-webkit-print-color-adjust:exact}
 }
