@@ -1,6 +1,7 @@
 import './globals.css'
 import type { Metadata } from 'next'
 import Analytics from './Analytics'
+import CookieBanner from './CookieBanner'
 
 export const metadata: Metadata = {
   title: 'Jet Lag Planner',
@@ -18,6 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <Analytics />
         {children}
+        <CookieBanner />
       </body>
     </html>
   )
