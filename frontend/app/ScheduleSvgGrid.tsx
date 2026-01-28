@@ -113,9 +113,10 @@ export default function ScheduleSvgGrid({ days, originOffset, destOffset }: Sche
   const labelFont = clamp(cellH * 0.6, 10, 12)
   const timeFont = clamp(cellH * 0.6, 9, 11)
 
-  const dotRadius = clamp(Math.min(cellW, cellH) * 0.18, 2, 4)
-  const badgeFont = clamp(Math.min(cellW, cellH) * 0.55, 7, 10)
-  const badgePadding = clamp(Math.min(cellW, cellH) * 0.12, 1, 2)
+  const dotRadius = clamp(Math.min(cellW, cellH) * 0.22, 3, 6)
+  const badgeFont = clamp(Math.min(cellW, cellH) * 0.6, 8, 12)
+  const badgePadding = clamp(Math.min(cellW, cellH) * 0.16, 2, 3)
+  const badgeSize = badgeFont + badgePadding * 2
 
   return (
     <div className={styles.svgGridContainer} ref={ref}>
@@ -152,32 +153,26 @@ export default function ScheduleSvgGrid({ days, originOffset, destOffset }: Sche
                           strokeWidth={1.4}
                         />
                       )}
-                      {slot.is_cbtmin && (
-                        <circle
-                          cx={x + cellW - dotRadius - 2}
-                          cy={y + dotRadius + 2}
-                          r={dotRadius}
-                          fill={COLORS.marker}
-                        />
-                      )}
                       {slot.is_travel && (
                         <g>
                           <rect
-                            x={x + cellW - (badgeFont + badgePadding * 2) - 2}
-                            y={y + cellH - badgeFont - badgePadding * 2 - 2}
-                            width={badgeFont + badgePadding * 2}
-                            height={badgeFont + badgePadding}
+                            x={x + (cellW - badgeSize) / 2}
+                            y={y + (cellH - badgeSize) / 2}
+                            width={badgeSize}
+                            height={badgeSize}
                             rx={2}
                             fill="#ffffffcc"
                             stroke="#9ca3af"
                             strokeWidth={0.8}
                           />
                           <text
-                            x={x + cellW - (badgeFont + badgePadding * 2) - 2 + badgePadding}
-                            y={y + cellH - badgePadding - 2}
+                            x={x + cellW / 2}
+                            y={y + cellH / 2}
                             fontSize={badgeFont}
                             fill="#111827"
                             fontWeight={700}
+                            textAnchor="middle"
+                            dominantBaseline="middle"
                           >
                             t
                           </text>
@@ -186,25 +181,35 @@ export default function ScheduleSvgGrid({ days, originOffset, destOffset }: Sche
                       {slot.is_melatonin && (
                         <g>
                           <rect
-                            x={x + 2}
-                            y={y + cellH - badgeFont - badgePadding * 2 - 2}
-                            width={badgeFont + badgePadding * 2}
-                            height={badgeFont + badgePadding}
+                            x={x + (cellW - badgeSize) / 2}
+                            y={y + (cellH - badgeSize) / 2}
+                            width={badgeSize}
+                            height={badgeSize}
                             rx={2}
                             fill="#ffffffcc"
                             stroke={COLORS.marker}
                             strokeWidth={0.8}
                           />
                           <text
-                            x={x + 2 + badgePadding}
-                            y={y + cellH - badgePadding - 2}
+                            x={x + cellW / 2}
+                            y={y + cellH / 2}
                             fontSize={badgeFont}
                             fill="#b91c1c"
                             fontWeight={700}
+                            textAnchor="middle"
+                            dominantBaseline="middle"
                           >
                             M
                           </text>
                         </g>
+                      )}
+                      {slot.is_cbtmin && (
+                        <circle
+                          cx={x + cellW / 2}
+                          cy={y + cellH / 2}
+                          r={dotRadius}
+                          fill={COLORS.marker}
+                        />
                       )}
                     </g>
                   )
@@ -283,7 +288,7 @@ export default function ScheduleSvgGrid({ days, originOffset, destOffset }: Sche
             </text>
 
             {hoursOrigin.map((h, idx) => {
-              const x = leftLabelW + idx * 2 * cellW + cellW
+              const x = leftLabelW + idx * 2 * cellW + 2
               return (
                 <text
                   key={`origin-hour-${idx}`}
@@ -291,7 +296,7 @@ export default function ScheduleSvgGrid({ days, originOffset, destOffset }: Sche
                   y={topHeaderH / 2}
                   fontSize={timeFont}
                   fill={COLORS.labelMuted}
-                  textAnchor="middle"
+                  textAnchor="start"
                   dominantBaseline="middle"
                   fontWeight={600}
                 >
@@ -312,7 +317,7 @@ export default function ScheduleSvgGrid({ days, originOffset, destOffset }: Sche
             </text>
 
             {hoursDest.map((h, idx) => {
-              const x = leftLabelW + idx * 2 * cellW + cellW
+              const x = leftLabelW + idx * 2 * cellW + 2
               return (
                 <text
                   key={`dest-hour-${idx}`}
@@ -320,7 +325,7 @@ export default function ScheduleSvgGrid({ days, originOffset, destOffset }: Sche
                   y={topHeaderH + gridH + bottomHeaderH / 2}
                   fontSize={timeFont}
                   fill={COLORS.labelMuted}
-                  textAnchor="middle"
+                  textAnchor="start"
                   dominantBaseline="middle"
                   fontWeight={600}
                 >
