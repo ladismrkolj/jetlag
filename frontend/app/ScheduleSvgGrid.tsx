@@ -109,7 +109,7 @@ export default function ScheduleSvgGrid({ days, originOffset, destOffset }: Sche
   const showMinorLines = cellW >= 10
   const shortDayLabels = cellH < 18 || leftLabelW < 95
 
-  const headerFont = clamp(cellH * 0.6, 9, 12)
+  const headerFont = clamp(cellH * 0.72, 10, 14)
   const labelFont = clamp(cellH * 0.6, 10, 12)
   const timeFont = clamp(cellH * 0.6, 9, 11)
 
@@ -292,7 +292,8 @@ export default function ScheduleSvgGrid({ days, originOffset, destOffset }: Sche
               dominantBaseline="middle"
               fontWeight={600}
             >
-              Origin (UTC{originOffset >= 0 ? '+' : ''}{originOffset})
+              <tspan x={8} dy={-headerFont * 0.35}>Origin</tspan>
+              <tspan x={8} dy={headerFont * 0.8}>(UTC{originOffset >= 0 ? '+' : ''}{originOffset})</tspan>
             </text>
 
             {hoursOrigin.map((h, idx) => {
@@ -321,7 +322,8 @@ export default function ScheduleSvgGrid({ days, originOffset, destOffset }: Sche
               dominantBaseline="middle"
               fontWeight={600}
             >
-              Destination (UTC{destOffset >= 0 ? '+' : ''}{destOffset})
+              <tspan x={8} dy={-headerFont * 0.35}>Destination</tspan>
+              <tspan x={8} dy={headerFont * 0.8}>(UTC{destOffset >= 0 ? '+' : ''}{destOffset})</tspan>
             </text>
 
             {hoursDest.map((h, idx) => {
