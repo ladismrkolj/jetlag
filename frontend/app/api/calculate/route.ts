@@ -17,7 +17,7 @@ type Inputs = {
   useLightDark: boolean
   useExercise: boolean
   preDays: number
-  adjustmentStart: 'after_arrival' | 'travel_start' | 'precondition'
+  adjustmentStart: 'after_arrival' | 'travel_start' | 'precondition' | 'precondition_with_travel' 
 }
 
 export async function POST(req: NextRequest) {
@@ -112,7 +112,7 @@ export const dynamic = 'force-dynamic'
 
 async function appendCalculationLog(req: NextRequest, inputs: Inputs, stats: { eventsCount: number; durationMs: number }) {
   const sheetId = process.env.GOOGLE_CALC_SHEETS_ID || process.env.GOOGLE_SHEETS_ID
-  const sheetTab = process.env.GOOGLE_CALC_SHEETS_TAB || 'Calculations'
+  const sheetTab = process.env.GOOGLE_CALC_SHEETS_TAB_RUNS || 'List2'
   const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
   const privateKeyRaw = process.env.GOOGLE_PRIVATE_KEY
   if (!sheetId || !clientEmail || !privateKeyRaw) return
