@@ -59,6 +59,12 @@
 .footerLabel{font-weight:600;color:#374151}
 .githubButton{display:inline-flex;align-items:center;justify-content:center;padding:10px 14px;border-radius:10px;border:1px solid #111;background:#111;color:#fff;text-decoration:none;font-size:13px;font-weight:600}
 .githubButton:hover{background:#1f2937;border-color:#1f2937}
+.printEmail{display:none}
+@media print{
+  .githubButton{background:transparent;color:#111;border-color:#111}
+  .githubLabel{display:none}
+  .printEmail{display:inline}
+}
 .modalBackdrop{position:fixed;inset:0;background:rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;z-index:40}
 .modal{background:#fff;border-radius:12px;border:1px solid #e5e7eb;max-width:520px;width:92%;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,0.2)}
 .modal h3{margin:0 0 8px 0}

@@ -478,7 +478,8 @@ export default function Page() {
           </div>
         </div>
         <a className={styles.githubButton} href="https://github.com/ladismrkolj/jetlag" target="_blank" rel="noreferrer">
-          View on GitHub
+          <span className={styles.githubLabel}>View on GitHub</span>
+          <span className={styles.printEmail}>info@lysiyo.com</span>
         </a>
         <button className={styles.reportBtn} type="button" onClick={() => { setReportOpen(true); setReportMessage(null) }}>
           Report a problem or suggestion
