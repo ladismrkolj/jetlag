@@ -95,7 +95,7 @@ export default function ScheduleSvgGrid({ days, originOffset, destOffset }: Sche
   const width = size.width
   const height = size.height
 
-  const leftLabelW = clamp(width * 0.18, 80, 140)
+  const leftLabelW = clamp(width * 0.1, 48, 110)
   const minCellW = 16
   const minGridW = NUM_SLOTS * minCellW
   const svgWidth = Math.max(width, leftLabelW + minGridW)
@@ -107,7 +107,7 @@ export default function ScheduleSvgGrid({ days, originOffset, destOffset }: Sche
   const cellH = numDays ? gridH / numDays : 0
 
   const showMinorLines = cellW >= 10
-  const shortDayLabels = cellH < 18 || leftLabelW < 95
+  const shortDayLabels = cellH < 18 || leftLabelW < 90
 
   const headerFont = clamp(cellH * 0.66, 9, 12)
   const headerLineGap = headerFont * 0.3
