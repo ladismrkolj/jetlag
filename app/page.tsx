@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import styles from './page.module.css'
 import ScheduleSvgGrid from './ScheduleSvgGrid'
+import TimezoneSelect from './TimezoneSelect'
 import { createJetLagTimetable } from './lib/jetlag'
 
 type TzOffset = number // in hours, e.g. -5 for New York winter
@@ -14,61 +15,6 @@ const OFFSET_STEP = 0.25
 const DEFAULT_ORIGIN_TZ = 'America/New_York'
 const DEFAULT_DEST_TZ = 'Europe/Paris'
 const SITE_URL = 'https://jetlag.lysiyo.com'
-
-const FALLBACK_TIMEZONES = [
-  'Pacific/Midway',
-  'Pacific/Honolulu',
-  'America/Anchorage',
-  'America/Los_Angeles',
-  'America/Denver',
-  'America/Phoenix',
-  'America/Chicago',
-  'America/New_York',
-  'America/Toronto',
-  'America/Mexico_City',
-  'America/Bogota',
-  'America/Lima',
-  'America/Caracas',
-  'America/Santiago',
-  'America/Argentina/Buenos_Aires',
-  'America/Sao_Paulo',
-  'America/St_Johns',
-  'Atlantic/Azores',
-  'Europe/London',
-  'Europe/Dublin',
-  'Europe/Lisbon',
-  'Europe/Madrid',
-  'Europe/Paris',
-  'Europe/Berlin',
-  'Europe/Rome',
-  'Europe/Athens',
-  'Europe/Helsinki',
-  'Europe/Moscow',
-  'Africa/Cairo',
-  'Africa/Johannesburg',
-  'Africa/Nairobi',
-  'Asia/Jerusalem',
-  'Asia/Dubai',
-  'Asia/Karachi',
-  'Asia/Kolkata',
-  'Asia/Kathmandu',
-  'Asia/Dhaka',
-  'Asia/Bangkok',
-  'Asia/Singapore',
-  'Asia/Hong_Kong',
-  'Asia/Taipei',
-  'Asia/Shanghai',
-  'Asia/Seoul',
-  'Asia/Tokyo',
-  'Australia/Perth',
-  'Australia/Adelaide',
-  'Australia/Sydney',
-  'Pacific/Guadalcanal',
-  'Pacific/Auckland',
-  'Pacific/Chatham',
-  'Pacific/Apia',
-  'Pacific/Kiritimati',
-] as const
 
 const ADJUSTMENT_OPTIONS: { value: AdjustmentStartOption; label: string }[] = [
   { value: 'after_arrival', label: 'After arrival' },
@@ -91,8 +37,8 @@ export default function Page() {
 
   const [originOffset, setOriginOffset] = useState<TzOffset>(-5)
   const [destOffset, setDestOffset] = useState<TzOffset>(1)
-  const [originTimeZone, setOriginTimeZone] = useState<string>(DEFAULT_ORIGIN_TZ)
-  const [destTimeZone, setDestTimeZone] = useState<string>(DEFAULT_DEST_TZ)
+  const [originTimeZone, setOriginTimeZone] = useState<string | null>(DEFAULT_ORIGIN_TZ)
+  const [destTimeZone, setDestTimeZone] = useState<string | null>(DEFAULT_DEST_TZ)
   const [originSleepStart, setOriginSleepStart] = useState('23:00')
   const [originSleepEnd, setOriginSleepEnd] = useState('07:00')
   const [destSleepStart, setDestSleepStart] = useState('23:00')
@@ -130,9 +76,6 @@ export default function Page() {
 
   const originReferenceDate = useMemo(() => pickReferenceDate(travelStart), [travelStart])
   const destReferenceDate = useMemo(() => pickReferenceDate(travelEnd), [travelEnd])
-  const [timezoneNames, setTimezoneNames] = useState<string[]>(() => getAllTimeZoneNames(true))
-  const originTimeZoneOptions = useMemo(() => buildTimeZoneOptions(timezoneNames, originReferenceDate), [timezoneNames, originReferenceDate])
-  const destTimeZoneOptions = useMemo(() => buildTimeZoneOptions(timezoneNames, destReferenceDate), [timezoneNames, destReferenceDate])
 
   useEffect(() => {
     // For beta: show on every reload for now
@@ -140,30 +83,30 @@ export default function Page() {
   }, [])
 
   useEffect(() => {
-    // Refresh with the full Intl-provided list once we are on the client
-    const names = getAllTimeZoneNames()
-    if (!names.length) return
-    setTimezoneNames(prev => {
-      if (prev.length === names.length && prev.every((v, i) => v === names[i])) return prev
-      return names
-    })
+    if (typeof window === 'undefined') return
+    const storedOrigin = window.localStorage.getItem('jetlag.originTimeZone')
+    const storedDest = window.localStorage.getItem('jetlag.destTimeZone')
+    if (storedOrigin) setOriginTimeZone(storedOrigin)
+    if (storedDest) setDestTimeZone(storedDest)
   }, [])
 
   useEffect(() => {
-    const fallback = originTimeZoneOptions[0]
-    if (!fallback) return
-    if (!originTimeZoneOptions.some(opt => opt.value === originTimeZone)) {
-      setOriginTimeZone(fallback.value)
+    if (typeof window === 'undefined') return
+    if (originTimeZone) {
+      window.localStorage.setItem('jetlag.originTimeZone', originTimeZone)
+    } else {
+      window.localStorage.removeItem('jetlag.originTimeZone')
     }
-  }, [originTimeZoneOptions, originTimeZone])
+  }, [originTimeZone])
 
   useEffect(() => {
-    const fallback = destTimeZoneOptions[0]
-    if (!fallback) return
-    if (!destTimeZoneOptions.some(opt => opt.value === destTimeZone)) {
-      setDestTimeZone(fallback.value)
+    if (typeof window === 'undefined') return
+    if (destTimeZone) {
+      window.localStorage.setItem('jetlag.destTimeZone', destTimeZone)
+    } else {
+      window.localStorage.removeItem('jetlag.destTimeZone')
     }
-  }, [destTimeZoneOptions, destTimeZone])
+  }, [destTimeZone])
 
   useEffect(() => {
     if (!originTimeZone) return
@@ -240,19 +183,11 @@ export default function Page() {
         <span className={styles.bizEmail}>info@lysiyo.com</span>
       </a>
       <form className={styles.form} onSubmit={onSubmit}>
-        <div className={styles.row}>
+        <div className={`${styles.row} ${styles.timeZoneRow}`}>
           <label>Origin time zone</label>
-          <select value={originTimeZone} onChange={e => setOriginTimeZone(e.target.value)}>
-            {originTimeZoneOptions.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
+          <TimezoneSelect value={originTimeZone} onChange={setOriginTimeZone} />
           <label>Destination time zone</label>
-          <select value={destTimeZone} onChange={e => setDestTimeZone(e.target.value)}>
-            {destTimeZoneOptions.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
+          <TimezoneSelect value={destTimeZone} onChange={setDestTimeZone} />
         </div>
         <div className={styles.row}>
           <label>Origin sleep</label>
@@ -681,37 +616,6 @@ function groupEventsByUTCDate(events: any[]) {
   return days
 }
 
-type TimeZoneOption = { value: string, label: string, offset: number | null }
-
-function getAllTimeZoneNames(forceFallback = false): string[] {
-  if (!forceFallback && typeof Intl !== 'undefined' && typeof (Intl as any).supportedValuesOf === 'function') {
-    try {
-      const values = (Intl as any).supportedValuesOf('timeZone') as string[]
-      if (Array.isArray(values) && values.length) return values
-    } catch {}
-  }
-  return Array.from(new Set(FALLBACK_TIMEZONES))
-}
-
-function buildTimeZoneOptions(names: string[], referenceDate: Date | null): TimeZoneOption[] {
-  const ref = referenceDate ?? new Date()
-  const options: TimeZoneOption[] = []
-  const seen = new Set<string>()
-  for (const name of names) {
-    if (!name || seen.has(name)) continue
-    seen.add(name)
-    const offset = getTimeZoneOffsetHours(name, ref)
-    options.push({ value: name, label: formatTimeZoneLabel(name, offset), offset })
-  }
-  options.sort((a, b) => {
-    const ao = a.offset ?? Number.POSITIVE_INFINITY
-    const bo = b.offset ?? Number.POSITIVE_INFINITY
-    if (ao !== bo) return ao - bo
-    return a.label.localeCompare(b.label)
-  })
-  return options
-}
-
 function getTimeZoneOffsetHours(timeZone: string, referenceDate?: Date | null): number | null {
   try {
     const date = referenceDate ?? new Date()
@@ -751,19 +655,6 @@ function getTimeZoneOffsetMinutes(timeZone: string, date: Date): number {
 
 function roundToQuarterHour(value: number): number {
   return Math.round(value * 4) / 4
-}
-
-function formatOffsetForDisplay(offset: number): string {
-  const totalMinutes = Math.round(Math.abs(offset) * 60)
-  const sign = offset >= 0 ? '+' : '-'
-  const hours = Math.floor(totalMinutes / 60)
-  const minutes = totalMinutes % 60
-  return `UTC${sign}${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
-}
-
-function formatTimeZoneLabel(timeZone: string, offset: number | null): string {
-  const readable = timeZone.replace(/_/g, ' ')
-  return offset == null ? readable : `${readable} (${formatOffsetForDisplay(offset)})`
 }
 
 function pickReferenceDate(value: string | null | undefined): Date | null {

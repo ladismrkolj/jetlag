@@ -3,8 +3,18 @@
 .form{display:flex;flex-direction:column;gap:12px;background:#fafafa;border:1px solid #eee;border-radius:12px;padding:16px}
 .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .row select{min-width:200px}
+.timeZoneRow{display:grid;grid-template-columns:max-content minmax(240px,1fr) max-content minmax(240px,1fr);align-items:center;gap:8px}
 .row label{font-size:12px;color:#444;margin-right:6px}
 .row input[type="number"],.row input[type="time"],.row input[type="datetime-local"],.row select{padding:6px 8px;border:1px solid #ddd;border-radius:8px;background:#fff}
+.timeZoneRow :global(.timezoneSelect){width:100%}
+.timeZoneRow :global(.timezoneSelect__control){border:1px solid #ddd;border-radius:8px;min-height:32px;box-shadow:none;font-size:12px}
+.timeZoneRow :global(.timezoneSelect__control--is-focused){border-color:#c4c4c4;box-shadow:0 0 0 1px #c4c4c4}
+.timeZoneRow :global(.timezoneSelect__value-container){padding:2px 8px}
+.timeZoneRow :global(.timezoneSelect__placeholder){color:#6b7280}
+.timeZoneRow :global(.timezoneSelect__single-value){color:#111}
+.timeZoneRow :global(.timezoneSelect__menu){z-index:6}
+.timeZoneRow :global(.timezoneSelect__option){font-size:12px}
+.timeZoneRow :global(.timezoneSelect__indicator-separator){display:none}
 .adjustmentControl{display:flex;align-items:center;gap:6px}
 .adjustmentControl label{margin-right:0}
 .adjustmentControl select{min-width:200px}
@@ -27,6 +37,10 @@
 .gridWrap{margin-top:24px;}
 .svgGridContainer{width:100%;height:clamp(320px,70vh,820px);border:1px solid #eee;border-radius:10px;background:#fff;overflow-x:auto;overflow-y:hidden}
 .svgGrid{height:100%;display:block}
+@media (max-width: 720px){
+  .timeZoneRow{grid-template-columns:1fr}
+  .timeZoneRow label{margin-right:0}
+}
 @media print{
   .main{padding:12px}
   .form{gap:8px;padding:10px;border-radius:10px}
@@ -34,6 +48,7 @@
   .row label{font-size:10px}
   .row input[type="number"],.row input[type="time"],.row input[type="datetime-local"],.row select{padding:4px 6px;font-size:11px}
   .adjustmentControl select,.row select{min-width:160px}
+  .timeZoneRow{grid-template-columns:1fr}
   .printBanner{gap:10px;padding:8px 12px;margin-bottom:10px}
   .printBannerText{font-size:10px}
   .printBannerTitle{font-size:14px}
