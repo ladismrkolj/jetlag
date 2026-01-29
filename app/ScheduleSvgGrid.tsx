@@ -180,8 +180,14 @@ export default function ScheduleSvgGrid({ days, originOffset, destOffset }: Sche
     </>
   )
 
-  const renderHeaderRow = (label: string, offset: number, hours: number[], key: string) => (
-    <div className={`${styles.timelineRow} ${styles.timelineHeaderRow}`} key={key}>
+  const renderScaleRow = (
+    label: string,
+    offset: number,
+    hours: number[],
+    key: string,
+    rowClassName?: string,
+  ) => (
+    <div className={`${styles.timelineRow} ${rowClassName ?? styles.timelineHeaderRow}`} key={key}>
       <div className={`${styles.timelineLabel} ${styles.timelineHeaderLabel}`}>
         <span className={styles.timelineHeaderTitle}>{label}</span>
         <span className={styles.timelineHeaderOffset}>
@@ -207,8 +213,8 @@ export default function ScheduleSvgGrid({ days, originOffset, destOffset }: Sche
     }}>
       <div className={styles.timelineCanvas} style={gridStyle}>
         <div className={styles.timelineHeaderGroup}>
-          {renderHeaderRow('Origin', originOffset, hoursOrigin, 'origin')}
-          {showUtc && renderHeaderRow('UTC', 0, hoursUtc, 'utc')}
+          {renderScaleRow('Origin', originOffset, hoursOrigin, 'origin', styles.timelineHeaderRow)}
+          {showUtc && renderScaleRow('UTC', 0, hoursUtc, 'utc', styles.timelineHeaderRow)}
         </div>
         <div className={styles.timelineBody}>
           {compressedDays.map(day => {
@@ -290,9 +296,7 @@ export default function ScheduleSvgGrid({ days, originOffset, destOffset }: Sche
               </div>
             )
           })}
-        </div>
-        <div className={styles.timelineFooterGroup}>
-          {renderHeaderRow('Destination', destOffset, hoursDest, 'dest')}
+          {renderScaleRow('Destination', destOffset, hoursDest, 'dest', styles.timelineFooterRow)}
         </div>
       </div>
       <div className={styles.timelineOverlay} aria-hidden="true">
