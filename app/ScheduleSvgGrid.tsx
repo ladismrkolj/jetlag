@@ -160,11 +160,19 @@ export default function ScheduleSvgGrid({ days, originOffset, destOffset }: Sche
     <>
       {Array.from({ length: bins + 1 }, (_, i) => {
         const isHour = i % binsPerHour === 0
+        const hourIndex = isHour ? i / binsPerHour : 0
+        const isPrimaryHour = isHour && hourIndex % 2 === 1
         if (!showMinorLines && !isHour) return null
         return (
           <span
             key={`${keyPrefix}-line-${i}`}
-            className={`${styles.timelineGridLine} ${isHour ? styles.timelineGridLineMajor : styles.timelineGridLineMinor}`}
+            className={`${styles.timelineGridLine} ${
+              isHour
+                ? isPrimaryHour
+                  ? styles.timelineGridLinePrimary
+                  : styles.timelineGridLineMajor
+                : styles.timelineGridLineMinor
+            }`}
             style={{ gridColumn: `${i + 2} / span 1` }}
           />
         )
@@ -201,7 +209,6 @@ export default function ScheduleSvgGrid({ days, originOffset, destOffset }: Sche
         <div className={styles.timelineHeaderGroup}>
           {renderHeaderRow('Origin', originOffset, hoursOrigin, 'origin')}
           {showUtc && renderHeaderRow('UTC', 0, hoursUtc, 'utc')}
-          {renderHeaderRow('Destination', destOffset, hoursDest, 'dest')}
         </div>
         <div className={styles.timelineBody}>
           {compressedDays.map(day => {
@@ -283,6 +290,9 @@ export default function ScheduleSvgGrid({ days, originOffset, destOffset }: Sche
               </div>
             )
           })}
+        </div>
+        <div className={styles.timelineFooterGroup}>
+          {renderHeaderRow('Destination', destOffset, hoursDest, 'dest')}
         </div>
       </div>
       <div className={styles.timelineOverlay} aria-hidden="true">

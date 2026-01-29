@@ -28,6 +28,7 @@
 .timelineScroll{width:100%;height:clamp(320px,70vh,820px);border:1px solid #eee;border-radius:10px;background:#fff;overflow-x:auto;overflow-y:hidden;position:relative}
 .timelineCanvas{position:relative;display:block;min-height:100%;background:#fff}
 .timelineHeaderGroup{position:sticky;top:0;z-index:5;background:#fff}
+.timelineFooterGroup{background:#fff;border-top:1px solid #e5e7eb}
 .timelineBody{display:flex;flex-direction:column}
 .timelineRow{display:grid;grid-template-columns:var(--labelW) repeat(var(--bins), var(--colW));align-items:stretch;min-height:28px;position:relative}
 .timelineHeaderRow{min-height:32px;border-bottom:1px solid #e5e7eb;background:#fff}
@@ -38,9 +39,10 @@
 .timelineHeaderOffset{font-size:10px;color:#6b7280}
 .timelineDayLabel{font-size:11px;text-transform:none}
 .timelineGridLine{grid-row:1;align-self:stretch;justify-self:start;width:0;border-left:1px solid #e5e7eb;z-index:3}
-.timelineGridLineMajor{border-left:1.4px solid #d4d4d8}
+.timelineGridLineMajor{border-left:1.6px solid #c4c4c4}
+.timelineGridLinePrimary{border-left:2px solid #9ca3af}
 .timelineGridLineMinor{border-left:1px solid #e5e7eb}
-.timelineHourLabel{font-size:10px;color:#4b5563;font-weight:600;align-self:center;padding-left:4px;z-index:2}
+.timelineHourLabel{font-size:10px;color:#4b5563;font-weight:600;align-self:center;justify-self:stretch;text-align:center;padding-left:0;z-index:2}
 .timelineSegment{grid-row:1;align-self:stretch;border-radius:0;z-index:1}
 .timelineSleep{background:#d1d5db}
 .timelineLight{background:#fef08a}
