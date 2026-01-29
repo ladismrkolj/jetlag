@@ -675,6 +675,11 @@ function groupEventsByUTCDate(events: any[]) {
           }
         }
       }
+      if (flags.is_sleep) {
+        flags.is_light = false
+        flags.is_dark = false
+        flags.is_exercise = false
+      }
       slots.push({ ...flags, start: slotStart.toISOString(), end: slotEnd.toISOString() })
     }
     days.push({ date: dateStr, slots })
