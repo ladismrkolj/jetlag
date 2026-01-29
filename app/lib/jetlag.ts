@@ -136,7 +136,26 @@ const nextInterval = (
     }
   }
 
-  if (filterWindow && intersectionHours([startDt, endDt], filterWindow) > 0) {
+  if (filterWindow) {
+    const [filterStart, filterEnd] = filterWindow
+    const overlapStart = new Date(Math.max(startDt.getTime(), filterStart.getTime()))
+    const overlapEnd = new Date(Math.min(endDt.getTime(), filterEnd.getTime()))
+
+    if (overlapStart < overlapEnd) {
+      if (overlapStart <= startDt && overlapEnd >= endDt) {
+        return [null, null]
+      }
+      if (overlapStart <= startDt) {
+        startDt = overlapEnd
+      } else if (overlapEnd >= endDt) {
+        endDt = overlapStart
+      } else {
+        endDt = overlapStart
+      }
+    }
+  }
+
+  if (startDt >= endDt) {
     return [null, null]
   }
 
