@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import styles from './page.module.css'
 import ScheduleSvgGrid from './ScheduleSvgGrid'
+import TimezoneSelect from './TimezoneSelect'
 import { createJetLagTimetable } from './lib/jetlag'
 
 type TzOffset = number // in hours, e.g. -5 for New York winter
@@ -36,12 +37,8 @@ export default function Page() {
 
   const [originOffset, setOriginOffset] = useState<TzOffset>(-5)
   const [destOffset, setDestOffset] = useState<TzOffset>(1)
-  const [originTimeZone, setOriginTimeZone] = useState<string>(DEFAULT_ORIGIN_TZ)
-  const [destTimeZone, setDestTimeZone] = useState<string>(DEFAULT_DEST_TZ)
-  const [originTimeZoneQuery, setOriginTimeZoneQuery] = useState('')
-  const [destTimeZoneQuery, setDestTimeZoneQuery] = useState('')
-  const [originTimeZoneOpen, setOriginTimeZoneOpen] = useState(false)
-  const [destTimeZoneOpen, setDestTimeZoneOpen] = useState(false)
+  const [originTimeZone, setOriginTimeZone] = useState<string | null>(DEFAULT_ORIGIN_TZ)
+  const [destTimeZone, setDestTimeZone] = useState<string | null>(DEFAULT_DEST_TZ)
   const [originSleepStart, setOriginSleepStart] = useState('23:00')
   const [originSleepEnd, setOriginSleepEnd] = useState('07:00')
   const [destSleepStart, setDestSleepStart] = useState('23:00')
@@ -79,13 +76,6 @@ export default function Page() {
 
   const originReferenceDate = useMemo(() => pickReferenceDate(travelStart), [travelStart])
   const destReferenceDate = useMemo(() => pickReferenceDate(travelEnd), [travelEnd])
-  const [timezoneNames, setTimezoneNames] = useState<string[]>(() => getAllTimeZoneNames())
-  const originTimeZoneOptions = useMemo(() => buildTimeZoneOptions(timezoneNames, originReferenceDate), [timezoneNames, originReferenceDate])
-  const destTimeZoneOptions = useMemo(() => buildTimeZoneOptions(timezoneNames, destReferenceDate), [timezoneNames, destReferenceDate])
-  const originSelectedOption = useMemo(() => originTimeZoneOptions.find(option => option.value === originTimeZone) ?? null, [originTimeZoneOptions, originTimeZone])
-  const destSelectedOption = useMemo(() => destTimeZoneOptions.find(option => option.value === destTimeZone) ?? null, [destTimeZoneOptions, destTimeZone])
-  const originFilteredOptions = useMemo(() => filterTimeZoneOptions(originTimeZoneOptions, originTimeZoneQuery), [originTimeZoneOptions, originTimeZoneQuery])
-  const destFilteredOptions = useMemo(() => filterTimeZoneOptions(destTimeZoneOptions, destTimeZoneQuery), [destTimeZoneOptions, destTimeZoneQuery])
 
   useEffect(() => {
     // For beta: show on every reload for now
@@ -93,30 +83,30 @@ export default function Page() {
   }, [])
 
   useEffect(() => {
-    // Refresh with the full Intl-provided list once we are on the client
-    const names = getAllTimeZoneNames()
-    if (!names.length) return
-    setTimezoneNames(prev => {
-      if (prev.length === names.length && prev.every((v, i) => v === names[i])) return prev
-      return names
-    })
+    if (typeof window === 'undefined') return
+    const storedOrigin = window.localStorage.getItem('jetlag.originTimeZone')
+    const storedDest = window.localStorage.getItem('jetlag.destTimeZone')
+    if (storedOrigin) setOriginTimeZone(storedOrigin)
+    if (storedDest) setDestTimeZone(storedDest)
   }, [])
 
   useEffect(() => {
-    const fallback = originTimeZoneOptions[0]
-    if (!fallback) return
-    if (!originTimeZoneOptions.some(opt => opt.value === originTimeZone)) {
-      setOriginTimeZone(fallback.value)
+    if (typeof window === 'undefined') return
+    if (originTimeZone) {
+      window.localStorage.setItem('jetlag.originTimeZone', originTimeZone)
+    } else {
+      window.localStorage.removeItem('jetlag.originTimeZone')
     }
-  }, [originTimeZoneOptions, originTimeZone])
+  }, [originTimeZone])
 
   useEffect(() => {
-    const fallback = destTimeZoneOptions[0]
-    if (!fallback) return
-    if (!destTimeZoneOptions.some(opt => opt.value === destTimeZone)) {
-      setDestTimeZone(fallback.value)
+    if (typeof window === 'undefined') return
+    if (destTimeZone) {
+      window.localStorage.setItem('jetlag.destTimeZone', destTimeZone)
+    } else {
+      window.localStorage.removeItem('jetlag.destTimeZone')
     }
-  }, [destTimeZoneOptions, destTimeZone])
+  }, [destTimeZone])
 
   useEffect(() => {
     if (!originTimeZone) return
@@ -193,115 +183,11 @@ export default function Page() {
         <span className={styles.bizEmail}>info@lysiyo.com</span>
       </a>
       <form className={styles.form} onSubmit={onSubmit}>
-        <div className={styles.row}>
+        <div className={`${styles.row} ${styles.timeZoneRow}`}>
           <label>Origin time zone</label>
-          <div className={styles.timeZoneField}>
-            <input
-              className={styles.timeZoneInput}
-              type="text"
-              value={originTimeZoneOpen ? originTimeZoneQuery : (originSelectedOption?.label ?? originTimeZone)}
-              placeholder="Search time zone"
-              onFocus={() => {
-                setOriginTimeZoneOpen(true)
-                setOriginTimeZoneQuery('')
-              }}
-              onChange={e => {
-                setOriginTimeZoneQuery(e.target.value)
-                setOriginTimeZoneOpen(true)
-              }}
-              onKeyDown={e => {
-                if (e.key === 'Escape') {
-                  setOriginTimeZoneOpen(false)
-                  setOriginTimeZoneQuery('')
-                }
-                if (e.key === 'Enter' && originFilteredOptions.length) {
-                  setOriginTimeZone(originFilteredOptions[0].value)
-                  setOriginTimeZoneOpen(false)
-                  setOriginTimeZoneQuery('')
-                }
-              }}
-              onBlur={() => {
-                setOriginTimeZoneOpen(false)
-                setOriginTimeZoneQuery('')
-              }}
-            />
-            {originTimeZoneOpen && (
-              <ul className={styles.timeZoneList} role="listbox">
-                {originFilteredOptions.length ? (
-                  originFilteredOptions.map(option => (
-                    <li
-                      key={option.value}
-                      role="option"
-                      className={styles.timeZoneOption}
-                      onMouseDown={() => {
-                        setOriginTimeZone(option.value)
-                        setOriginTimeZoneOpen(false)
-                        setOriginTimeZoneQuery('')
-                      }}
-                    >
-                      {option.label}
-                    </li>
-                  ))
-                ) : (
-                  <li className={styles.timeZoneEmpty}>No matches</li>
-                )}
-              </ul>
-            )}
-          </div>
+          <TimezoneSelect value={originTimeZone} onChange={setOriginTimeZone} />
           <label>Destination time zone</label>
-          <div className={styles.timeZoneField}>
-            <input
-              className={styles.timeZoneInput}
-              type="text"
-              value={destTimeZoneOpen ? destTimeZoneQuery : (destSelectedOption?.label ?? destTimeZone)}
-              placeholder="Search time zone"
-              onFocus={() => {
-                setDestTimeZoneOpen(true)
-                setDestTimeZoneQuery('')
-              }}
-              onChange={e => {
-                setDestTimeZoneQuery(e.target.value)
-                setDestTimeZoneOpen(true)
-              }}
-              onKeyDown={e => {
-                if (e.key === 'Escape') {
-                  setDestTimeZoneOpen(false)
-                  setDestTimeZoneQuery('')
-                }
-                if (e.key === 'Enter' && destFilteredOptions.length) {
-                  setDestTimeZone(destFilteredOptions[0].value)
-                  setDestTimeZoneOpen(false)
-                  setDestTimeZoneQuery('')
-                }
-              }}
-              onBlur={() => {
-                setDestTimeZoneOpen(false)
-                setDestTimeZoneQuery('')
-              }}
-            />
-            {destTimeZoneOpen && (
-              <ul className={styles.timeZoneList} role="listbox">
-                {destFilteredOptions.length ? (
-                  destFilteredOptions.map(option => (
-                    <li
-                      key={option.value}
-                      role="option"
-                      className={styles.timeZoneOption}
-                      onMouseDown={() => {
-                        setDestTimeZone(option.value)
-                        setDestTimeZoneOpen(false)
-                        setDestTimeZoneQuery('')
-                      }}
-                    >
-                      {option.label}
-                    </li>
-                  ))
-                ) : (
-                  <li className={styles.timeZoneEmpty}>No matches</li>
-                )}
-              </ul>
-            )}
-          </div>
+          <TimezoneSelect value={destTimeZone} onChange={setDestTimeZone} />
         </div>
         <div className={styles.row}>
           <label>Origin sleep</label>
@@ -731,50 +617,6 @@ function groupEventsByUTCDate(events: any[]) {
   return days
 }
 
-type TimeZoneOption = { value: string, label: string, offset: number | null }
-
-function getAllTimeZoneNames(): string[] {
-  if (typeof Intl !== 'undefined' && typeof (Intl as any).supportedValuesOf === 'function') {
-    try {
-      const values = (Intl as any).supportedValuesOf('timeZone') as string[]
-      if (Array.isArray(values) && values.length) return values
-    } catch {}
-  }
-  const guess = typeof Intl !== 'undefined'
-    ? Intl.DateTimeFormat().resolvedOptions().timeZone
-    : null
-  return Array.from(new Set([DEFAULT_ORIGIN_TZ, DEFAULT_DEST_TZ, guess].filter(Boolean)))
-}
-
-function buildTimeZoneOptions(names: string[], referenceDate: Date | null): TimeZoneOption[] {
-  const ref = referenceDate ?? new Date()
-  const options: TimeZoneOption[] = []
-  const seen = new Set<string>()
-  for (const name of names) {
-    if (!name || seen.has(name)) continue
-    seen.add(name)
-    const offset = getTimeZoneOffsetHours(name, ref)
-    options.push({ value: name, label: formatTimeZoneLabel(name, offset), offset })
-  }
-  options.sort((a, b) => {
-    const ao = a.offset ?? Number.POSITIVE_INFINITY
-    const bo = b.offset ?? Number.POSITIVE_INFINITY
-    if (ao !== bo) return ao - bo
-    return a.label.localeCompare(b.label)
-  })
-  return options
-}
-
-function filterTimeZoneOptions(options: TimeZoneOption[], query: string): TimeZoneOption[] {
-  const trimmed = query.trim().toLowerCase()
-  if (!trimmed) return options
-  return options.filter(option => {
-    const label = option.label.toLowerCase()
-    const value = option.value.toLowerCase()
-    return label.includes(trimmed) || value.includes(trimmed)
-  })
-}
-
 function getTimeZoneOffsetHours(timeZone: string, referenceDate?: Date | null): number | null {
   try {
     const date = referenceDate ?? new Date()
@@ -814,19 +656,6 @@ function getTimeZoneOffsetMinutes(timeZone: string, date: Date): number {
 
 function roundToQuarterHour(value: number): number {
   return Math.round(value * 4) / 4
-}
-
-function formatOffsetForDisplay(offset: number): string {
-  const totalMinutes = Math.round(Math.abs(offset) * 60)
-  const sign = offset >= 0 ? '+' : '-'
-  const hours = Math.floor(totalMinutes / 60)
-  const minutes = totalMinutes % 60
-  return `UTC${sign}${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
-}
-
-function formatTimeZoneLabel(timeZone: string, offset: number | null): string {
-  const readable = timeZone.replace(/_/g, ' ')
-  return offset == null ? readable : `${readable} (${formatOffsetForDisplay(offset)})`
 }
 
 function pickReferenceDate(value: string | null | undefined): Date | null {
