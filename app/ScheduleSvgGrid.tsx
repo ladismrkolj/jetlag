@@ -26,7 +26,7 @@ type SlotSegment = {
 }
 
 const NUM_SLOTS = 48
-const DEFAULT_LABEL_W = 200
+const DEFAULT_LABEL_W = 140
 const MIN_COL_W = 16
 const NARROW_BREAKPOINT = 640
 
@@ -180,7 +180,6 @@ export default function ScheduleSvgGrid({ days, originOffset, destOffset }: Sche
           (UTC{offset >= 0 ? '+' : ''}{offset})
         </span>
       </div>
-      {renderGridLines(`${key}-header`)}
       {hours.map((hour, index) => (
         <span
           key={`${key}-hour-${hour}-${index}`}
