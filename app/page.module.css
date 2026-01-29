@@ -6,15 +6,15 @@
 .timeZoneRow{display:grid;grid-template-columns:max-content minmax(240px,1fr) max-content minmax(240px,1fr);align-items:center;gap:8px}
 .row label{font-size:12px;color:#444;margin-right:6px}
 .row input[type="number"],.row input[type="time"],.row input[type="datetime-local"],.row select{padding:6px 8px;border:1px solid #ddd;border-radius:8px;background:#fff}
-:global(.timezoneSelect){width:100%}
-:global(.timezoneSelect__control){border:1px solid #ddd;border-radius:8px;min-height:32px;box-shadow:none;font-size:12px}
-:global(.timezoneSelect__control--is-focused){border-color:#c4c4c4;box-shadow:0 0 0 1px #c4c4c4}
-:global(.timezoneSelect__value-container){padding:2px 8px}
-:global(.timezoneSelect__placeholder){color:#6b7280}
-:global(.timezoneSelect__single-value){color:#111}
-:global(.timezoneSelect__menu){z-index:6}
-:global(.timezoneSelect__option){font-size:12px}
-:global(.timezoneSelect__indicator-separator){display:none}
+.timeZoneRow :global(.timezoneSelect){width:100%}
+.timeZoneRow :global(.timezoneSelect__control){border:1px solid #ddd;border-radius:8px;min-height:32px;box-shadow:none;font-size:12px}
+.timeZoneRow :global(.timezoneSelect__control--is-focused){border-color:#c4c4c4;box-shadow:0 0 0 1px #c4c4c4}
+.timeZoneRow :global(.timezoneSelect__value-container){padding:2px 8px}
+.timeZoneRow :global(.timezoneSelect__placeholder){color:#6b7280}
+.timeZoneRow :global(.timezoneSelect__single-value){color:#111}
+.timeZoneRow :global(.timezoneSelect__menu){z-index:6}
+.timeZoneRow :global(.timezoneSelect__option){font-size:12px}
+.timeZoneRow :global(.timezoneSelect__indicator-separator){display:none}
 .adjustmentControl{display:flex;align-items:center;gap:6px}
 .adjustmentControl label{margin-right:0}
 .adjustmentControl select{min-width:200px}
