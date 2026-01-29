@@ -93,6 +93,8 @@ export default function Page() {
   const [destOffset, setDestOffset] = useState<TzOffset>(1)
   const [originTimeZone, setOriginTimeZone] = useState<string>(DEFAULT_ORIGIN_TZ)
   const [destTimeZone, setDestTimeZone] = useState<string>(DEFAULT_DEST_TZ)
+  const [originTimeZoneQuery, setOriginTimeZoneQuery] = useState<string>(DEFAULT_ORIGIN_TZ)
+  const [destTimeZoneQuery, setDestTimeZoneQuery] = useState<string>(DEFAULT_DEST_TZ)
   const [originSleepStart, setOriginSleepStart] = useState('23:00')
   const [originSleepEnd, setOriginSleepEnd] = useState('07:00')
   const [destSleepStart, setDestSleepStart] = useState('23:00')
@@ -133,6 +135,8 @@ export default function Page() {
   const [timezoneNames, setTimezoneNames] = useState<string[]>(() => getAllTimeZoneNames(true))
   const originTimeZoneOptions = useMemo(() => buildTimeZoneOptions(timezoneNames, originReferenceDate), [timezoneNames, originReferenceDate])
   const destTimeZoneOptions = useMemo(() => buildTimeZoneOptions(timezoneNames, destReferenceDate), [timezoneNames, destReferenceDate])
+  const originTimeZoneValues = useMemo(() => new Set(originTimeZoneOptions.map(option => option.value)), [originTimeZoneOptions])
+  const destTimeZoneValues = useMemo(() => new Set(destTimeZoneOptions.map(option => option.value)), [destTimeZoneOptions])
 
   useEffect(() => {
     // For beta: show on every reload for now
@@ -164,6 +168,14 @@ export default function Page() {
       setDestTimeZone(fallback.value)
     }
   }, [destTimeZoneOptions, destTimeZone])
+
+  useEffect(() => {
+    setOriginTimeZoneQuery(originTimeZone)
+  }, [originTimeZone])
+
+  useEffect(() => {
+    setDestTimeZoneQuery(destTimeZone)
+  }, [destTimeZone])
 
   useEffect(() => {
     if (!originTimeZone) return
@@ -242,17 +254,53 @@ export default function Page() {
       <form className={styles.form} onSubmit={onSubmit}>
         <div className={styles.row}>
           <label>Origin time zone</label>
-          <select value={originTimeZone} onChange={e => setOriginTimeZone(e.target.value)}>
+          <input
+            type="text"
+            list="origin-timezones"
+            value={originTimeZoneQuery}
+            placeholder="Search time zone"
+            onChange={e => {
+              const next = e.target.value
+              setOriginTimeZoneQuery(next)
+              if (originTimeZoneValues.has(next)) {
+                setOriginTimeZone(next)
+              }
+            }}
+            onBlur={() => {
+              if (!originTimeZoneValues.has(originTimeZoneQuery)) {
+                setOriginTimeZoneQuery(originTimeZone)
+              }
+            }}
+          />
+          <datalist id="origin-timezones">
             {originTimeZoneOptions.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
+              <option key={opt.value} value={opt.value} label={opt.label} />
             ))}
-          </select>
+          </datalist>
           <label>Destination time zone</label>
-          <select value={destTimeZone} onChange={e => setDestTimeZone(e.target.value)}>
+          <input
+            type="text"
+            list="destination-timezones"
+            value={destTimeZoneQuery}
+            placeholder="Search time zone"
+            onChange={e => {
+              const next = e.target.value
+              setDestTimeZoneQuery(next)
+              if (destTimeZoneValues.has(next)) {
+                setDestTimeZone(next)
+              }
+            }}
+            onBlur={() => {
+              if (!destTimeZoneValues.has(destTimeZoneQuery)) {
+                setDestTimeZoneQuery(destTimeZone)
+              }
+            }}
+          />
+          <datalist id="destination-timezones">
             {destTimeZoneOptions.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
+              <option key={opt.value} value={opt.value} label={opt.label} />
             ))}
-          </select>
+          </datalist>
         </div>
         <div className={styles.row}>
           <label>Origin sleep</label>

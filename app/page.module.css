@@ -2,9 +2,9 @@
 .title{font-weight:600;letter-spacing:0.2px;margin-bottom:16px}
 .form{display:flex;flex-direction:column;gap:12px;background:#fafafa;border:1px solid #eee;border-radius:12px;padding:16px}
 .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-.row select{min-width:200px}
+.row select,.row input[type="text"]{min-width:200px}
 .row label{font-size:12px;color:#444;margin-right:6px}
-.row input[type="number"],.row input[type="time"],.row input[type="datetime-local"],.row select{padding:6px 8px;border:1px solid #ddd;border-radius:8px;background:#fff}
+.row input[type="number"],.row input[type="time"],.row input[type="datetime-local"],.row input[type="text"],.row select{padding:6px 8px;border:1px solid #ddd;border-radius:8px;background:#fff}
 .adjustmentControl{display:flex;align-items:center;gap:6px}
 .adjustmentControl label{margin-right:0}
 .adjustmentControl select{min-width:200px}
@@ -32,8 +32,8 @@
   .form{gap:8px;padding:10px;border-radius:10px}
   .row{gap:6px}
   .row label{font-size:10px}
-  .row input[type="number"],.row input[type="time"],.row input[type="datetime-local"],.row select{padding:4px 6px;font-size:11px}
-  .adjustmentControl select,.row select{min-width:160px}
+  .row input[type="number"],.row input[type="time"],.row input[type="datetime-local"],.row input[type="text"],.row select{padding:4px 6px;font-size:11px}
+  .adjustmentControl select,.row select,.row input[type="text"]{min-width:160px}
   .printBanner{gap:10px;padding:8px 12px;margin-bottom:10px}
   .printBannerText{font-size:10px}
   .printBannerTitle{font-size:14px}
