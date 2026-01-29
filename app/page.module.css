@@ -5,6 +5,18 @@
 .row select{min-width:200px}
 .row label{font-size:12px;color:#444;margin-right:6px}
 .row input[type="number"],.row input[type="time"],.row input[type="datetime-local"],.row select{padding:6px 8px;border:1px solid #ddd;border-radius:8px;background:#fff}
+.timezoneSelect{min-width:220px;flex:1;position:relative}
+.timezoneSelect :global(.timezoneSelect__control){min-height:32px;border-radius:8px;border:1px solid #ddd;box-shadow:none;display:flex;align-items:center;gap:4px;padding:0 6px;background:#fff}
+.timezoneSelect :global(.timezoneSelect__control--is-focused){border-color:#9ca3af;box-shadow:0 0 0 1px #9ca3af}
+.timezoneSelect :global(.timezoneSelect__value-container){padding:0 6px}
+.timezoneSelect :global(.timezoneSelect__input-container){margin:0;padding:0}
+.timezoneSelect :global(.timezoneSelect__input){border:0;outline:0;font-size:12px;background:transparent;width:100%;padding:6px 0}
+.timezoneSelect :global(.timezoneSelect__clear-indicator){padding:4px}
+.timezoneSelect :global(.timezoneSelect__dropdown-indicator){padding:4px}
+.timezoneSelect :global(.timezoneSelect__menu){position:absolute;left:0;right:0;margin-top:4px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 8px 20px rgba(15,23,42,0.12);max-height:240px;overflow:auto;z-index:20}
+.timezoneSelect :global(.timezoneSelect__menu-list){max-height:240px;overflow:auto}
+.timezoneSelect :global(.timezoneSelect__option){padding:6px 8px;font-size:12px;cursor:pointer}
+.timezoneSelect :global(.timezoneSelect__option--is-focused){background:#f3f4f6}
 .adjustmentControl{display:flex;align-items:center;gap:6px}
 .adjustmentControl label{margin-right:0}
 .adjustmentControl select{min-width:200px}
@@ -34,6 +46,7 @@
   .row label{font-size:10px}
   .row input[type="number"],.row input[type="time"],.row input[type="datetime-local"],.row select{padding:4px 6px;font-size:11px}
   .adjustmentControl select,.row select{min-width:160px}
+  .timezoneSelect{min-width:160px}
   .printBanner{gap:10px;padding:8px 12px;margin-bottom:10px}
   .printBannerText{font-size:10px}
   .printBannerTitle{font-size:14px}

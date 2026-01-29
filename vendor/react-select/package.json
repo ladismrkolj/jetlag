@@ -1,0 +1,10 @@
+{
+  "name": "react-select",
+  "version": "5.7.3",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "peerDependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  }
+}
