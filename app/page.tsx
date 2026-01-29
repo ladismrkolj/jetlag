@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import styles from './page.module.css'
 import ScheduleSvgGrid from './ScheduleSvgGrid'
+import { createJetLagTimetable } from './lib/jetlag'
 
 type TzOffset = number // in hours, e.g. -5 for New York winter
 type AdjustmentStartOption = 'after_arrival' | 'travel_start' | 'precondition' | 'precondition_with_travel' 
@@ -185,28 +186,21 @@ export default function Page() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/calculate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          originOffset,
-          destOffset,
-          originSleepStart,
-          originSleepEnd,
-          destSleepStart,
-          destSleepEnd,
-          travelStart,
-          travelEnd,
-          useMelatonin,
-          useLightDark,
-          useExercise,
-          adjustmentStart,
-          preDays,
-        })
+      const receivedEvents = createJetLagTimetable({
+        originOffset,
+        destOffset,
+        originSleepStart,
+        originSleepEnd,
+        destSleepStart,
+        destSleepEnd,
+        travelStart,
+        travelEnd,
+        useMelatonin,
+        useLightDark,
+        useExercise,
+        adjustmentStart,
+        preDays,
       })
-      if (!res.ok) throw new Error(`API error: ${res.status}`)
-      const data = await res.json()
-      const receivedEvents = Array.isArray(data.events) ? data.events : null
       setEvents(receivedEvents)
       if (receivedEvents) {
         // Update the displayed legends only upon successful calculation
