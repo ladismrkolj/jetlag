@@ -4,7 +4,7 @@ import styles from './page.module.css'
 import ScheduleSvgGrid from './ScheduleSvgGrid'
 import { createJetLagTimetable } from './lib/jetlag'
 import TimezoneSelect from './components/TimezoneSelect'
-import { getTimeZoneNames } from './lib/timezones'
+import { getTimeZoneNames, getTimeZoneOffsetHours } from './lib/timezones'
 
 type TzOffset = number // in hours, e.g. -5 for New York winter
 type AdjustmentStartOption = 'after_arrival' | 'travel_start' | 'precondition' | 'precondition_with_travel' 
@@ -221,12 +221,14 @@ export default function Page() {
           <TimezoneSelect
             className={styles.timezoneSelect}
             value={originTimeZone}
+            referenceDate={originReferenceDate}
             onChange={next => setOriginTimeZone(next)}
           />
           <label>Destination time zone</label>
           <TimezoneSelect
             className={styles.timezoneSelect}
             value={destTimeZone}
+            referenceDate={destReferenceDate}
             onChange={next => setDestTimeZone(next)}
           />
         </div>
@@ -655,43 +657,6 @@ function groupEventsByUTCDate(events: any[]) {
     days.push({ date: dateStr, slots })
   }
   return days
-}
-
-function getTimeZoneOffsetHours(timeZone: string, referenceDate?: Date | null): number | null {
-  try {
-    const date = referenceDate ?? new Date()
-    const minutes = getTimeZoneOffsetMinutes(timeZone, date)
-    if (!Number.isFinite(minutes)) return null
-    return minutes / 60
-  } catch {
-    return null
-  }
-}
-
-function getTimeZoneOffsetMinutes(timeZone: string, date: Date): number {
-  const dtf = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    hour12: false,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  })
-  const parts = dtf.formatToParts(date)
-  const map = new Map<string, string>()
-  for (const part of parts) {
-    map.set(part.type, part.value)
-  }
-  const year = Number(map.get('year'))
-  const month = Number(map.get('month'))
-  const day = Number(map.get('day'))
-  const hour = Number(map.get('hour'))
-  const minute = Number(map.get('minute'))
-  const second = Number(map.get('second'))
-  const asUTC = Date.UTC(year, month - 1, day, hour, minute, second)
-  return (asUTC - date.getTime()) / 60000
 }
 
 function roundToQuarterHour(value: number): number {

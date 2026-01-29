@@ -2,24 +2,17 @@
 
 import { useMemo } from 'react'
 import Select from 'react-select'
-import { getTimeZoneNames } from '../lib/timezones'
-
-type TimezoneOption = {
-  value: string
-  label: string
-}
+import { buildTimezoneOptions } from '../lib/timezones'
 
 type TimezoneSelectProps = {
   value: string | null
   onChange: (tzString: string | null) => void
+  referenceDate?: Date | null
   className?: string
 }
 
-export default function TimezoneSelect({ value, onChange, className }: TimezoneSelectProps) {
-  const options = useMemo(() => {
-    const unique = Array.from(new Set(getTimeZoneNames()))
-    return unique.map(timeZone => ({ value: timeZone, label: timeZone }))
-  }, [])
+export default function TimezoneSelect({ value, onChange, referenceDate, className }: TimezoneSelectProps) {
+  const options = useMemo(() => buildTimezoneOptions(referenceDate), [referenceDate])
 
   const selectedOption = useMemo(
     () => options.find(option => option.value === value) ?? null,
