@@ -315,7 +315,9 @@ export default function Page() {
           <button type="button" onClick={() => { if (typeof window !== 'undefined') window.print() }}>
             Print this page
           </button>
-          
+          <button className={styles.reportBtn} type="button" onClick={() => { setReportOpen(true); setReportMessage(null) }}>
+            Report a problem or suggestion
+          </button>
         </div>
       </form>
 
@@ -478,9 +480,6 @@ export default function Page() {
             </a>
           </div>
         </div>
-        <button className={styles.reportBtn} type="button" onClick={() => { setReportOpen(true); setReportMessage(null) }}>
-          Report a problem or suggestion
-        </button>
       </footer>
 
       {reportOpen && (
