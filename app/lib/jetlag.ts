@@ -52,10 +52,10 @@ const PRESETS = {
     melatonin_delay: 4,
     exercise_advance: [0, 3] as [number, number],
     exercise_delay: [-3, 0] as [number, number],
-    light_advance: [0, 3] as [number, number],
-    light_delay: [-3, 0] as [number, number],
-    dark_advance: [-3, 0] as [number, number],
-    dark_delay: [0, 3] as [number, number],
+    light_advance: [0, 6] as [number, number],
+    light_delay: [-6, 0] as [number, number],
+    dark_advance: [-6, 0] as [number, number],
+    dark_delay: [0, 6] as [number, number],
   },
 }
 
@@ -160,6 +160,28 @@ const nextInterval = (
   }
 
   return [startDt, endDt]
+}
+
+const subtractIntervals = (interval: Interval, exclusions: Interval[]) => {
+  const [start, end] = interval
+  if (start >= end) return []
+  if (exclusions.length === 0) return [[start, end]] as Interval[]
+  const sorted = [...exclusions].sort((a, b) => a[0].getTime() - b[0].getTime())
+  const result: Interval[] = []
+  let cursor = start
+  for (const [exclusionStart, exclusionEnd] of sorted) {
+    if (exclusionEnd <= cursor) continue
+    if (exclusionStart >= end) break
+    if (exclusionStart > cursor) {
+      result.push([cursor, new Date(Math.min(exclusionStart.getTime(), end.getTime()))])
+    }
+    cursor = new Date(Math.max(cursor.getTime(), exclusionEnd.getTime()))
+    if (cursor >= end) break
+  }
+  if (cursor < end) {
+    result.push([cursor, end])
+  }
+  return result
 }
 
 class CBTmin {
@@ -457,102 +479,6 @@ export const createJetLagTimetable = (inputs: JetLagInputs): JetLagEvent[] => {
 
   const midnightEndOfCalculations = midnightForDatetime(addDays(cbtEntries[cbtEntries.length - 1][0], 1))
 
-  const interventionEvents: JetLagEvent[] = []
-
-  const signedDiff = cbt.signedDifference()
-  const phaseDirection = cbt.phase_direction
-
-  for (const entry of cbtEntries) {
-    const [cbtTime, interventions] = entry
-    interventionEvents.push({
-      event: 'cbtmin',
-      start: toIso(cbtTime),
-      end: null,
-      is_cbtmin: true,
-      is_melatonin: false,
-      is_light: false,
-      is_dark: false,
-      is_exercise: false,
-      is_sleep: false,
-      is_travel: false,
-      day_index: null,
-      phase_direction: phaseDirection,
-      signed_initial_diff_hours: signedDiff,
-    })
-
-    if (interventions[0][0]) {
-      interventionEvents.push({
-        event: 'melatonin',
-        start: toIso(interventions[0][1]),
-        end: null,
-        is_cbtmin: false,
-        is_melatonin: true,
-        is_light: false,
-        is_dark: false,
-        is_exercise: false,
-        is_sleep: false,
-        is_travel: false,
-        day_index: null,
-        phase_direction: phaseDirection,
-        signed_initial_diff_hours: signedDiff,
-      })
-    }
-
-    if (interventions[1][0]) {
-      interventionEvents.push({
-        event: 'exercise',
-        start: toIso(interventions[1][1][0]),
-        end: toIso(interventions[1][1][1]),
-        is_cbtmin: false,
-        is_melatonin: false,
-        is_light: false,
-        is_dark: false,
-        is_exercise: true,
-        is_sleep: false,
-        is_travel: false,
-        day_index: null,
-        phase_direction: phaseDirection,
-        signed_initial_diff_hours: signedDiff,
-      })
-    }
-
-    if (interventions[2][0]) {
-      interventionEvents.push({
-        event: 'light',
-        start: toIso(interventions[2][1][0]),
-        end: toIso(interventions[2][1][1]),
-        is_cbtmin: false,
-        is_melatonin: false,
-        is_light: true,
-        is_dark: false,
-        is_exercise: false,
-        is_sleep: false,
-        is_travel: false,
-        day_index: null,
-        phase_direction: phaseDirection,
-        signed_initial_diff_hours: signedDiff,
-      })
-    }
-
-    if (interventions[3][0]) {
-      interventionEvents.push({
-        event: 'dark',
-        start: toIso(interventions[3][1][0]),
-        end: toIso(interventions[3][1][1]),
-        is_cbtmin: false,
-        is_melatonin: false,
-        is_light: false,
-        is_dark: true,
-        is_exercise: false,
-        is_sleep: false,
-        is_travel: false,
-        day_index: null,
-        phase_direction: phaseDirection,
-        signed_initial_diff_hours: signedDiff,
-      })
-    }
-  }
-
   const sleepWindows: Interval[] = []
   let sleepTime = midnightStartOfCalculations
   let sleepDest = false
@@ -598,6 +524,84 @@ export const createJetLagTimetable = (inputs: JetLagInputs): JetLagEvent[] => {
     }
     sleepWindows.push([s, e])
     sleepTime = e
+  }
+
+  const interventionEvents: JetLagEvent[] = []
+
+  const signedDiff = cbt.signedDifference()
+  const phaseDirection = cbt.phase_direction
+
+  const addTrimmedIntervals = (
+    event: 'exercise' | 'light' | 'dark',
+    baseInterval: Interval,
+  ) => {
+    const trimmed = subtractIntervals(baseInterval, sleepWindows)
+    for (const [start, end] of trimmed) {
+      interventionEvents.push({
+        event,
+        start: toIso(start),
+        end: toIso(end),
+        is_cbtmin: false,
+        is_melatonin: false,
+        is_light: event === 'light',
+        is_dark: event === 'dark',
+        is_exercise: event === 'exercise',
+        is_sleep: false,
+        is_travel: false,
+        day_index: null,
+        phase_direction: phaseDirection,
+        signed_initial_diff_hours: signedDiff,
+      })
+    }
+  }
+
+  for (const entry of cbtEntries) {
+    const [cbtTime, interventions] = entry
+    interventionEvents.push({
+      event: 'cbtmin',
+      start: toIso(cbtTime),
+      end: null,
+      is_cbtmin: true,
+      is_melatonin: false,
+      is_light: false,
+      is_dark: false,
+      is_exercise: false,
+      is_sleep: false,
+      is_travel: false,
+      day_index: null,
+      phase_direction: phaseDirection,
+      signed_initial_diff_hours: signedDiff,
+    })
+
+    if (interventions[0][0]) {
+      interventionEvents.push({
+        event: 'melatonin',
+        start: toIso(interventions[0][1]),
+        end: null,
+        is_cbtmin: false,
+        is_melatonin: true,
+        is_light: false,
+        is_dark: false,
+        is_exercise: false,
+        is_sleep: false,
+        is_travel: false,
+        day_index: null,
+        phase_direction: phaseDirection,
+        signed_initial_diff_hours: signedDiff,
+      })
+    }
+
+    if (interventions[1][0]) {
+      addTrimmedIntervals('exercise', interventions[1][1])
+    }
+
+    if (interventions[2][0]) {
+      addTrimmedIntervals('light', interventions[2][1])
+    }
+
+    if (interventions[3][0]) {
+      addTrimmedIntervals('dark', interventions[3][1])
+    }
   }
 
   const events: JetLagEvent[] = []
