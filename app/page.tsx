@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import styles from './page.module.css'
 import ScheduleSvgGrid from './ScheduleSvgGrid'
 import { createJetLagTimetable } from './lib/jetlag'
@@ -40,9 +40,28 @@ import { createTheme } from '@mui/material/styles'
 type TzOffset = number // in hours, e.g. -5 for New York winter
 type AdjustmentStartOption = 'after_arrival' | 'travel_start' | 'precondition' | 'precondition_with_travel'
 
+type ShareSettings = {
+  v: 1
+  originTz: string
+  destTz: string
+  originSleepStart: string
+  originSleepEnd: string
+  destSleepStart: string
+  destSleepEnd: string
+  travelStart: string
+  travelEnd: string
+  melatonin: boolean
+  lightDark: boolean
+  exercise: boolean
+  startAdjustments: AdjustmentStartOption
+  preconditionDays: number
+}
+
 const OFFSET_MIN = -12
 const OFFSET_MAX = 14
 const OFFSET_STEP = 0.25
+const SETTINGS_VERSION = 1
+const TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/
 
 const DEFAULT_ORIGIN_TZ = 'America/New_York'
 const DEFAULT_DEST_TZ = 'Europe/Paris'
@@ -111,6 +130,8 @@ export default function Page() {
   const noonPlusDays = (days: number) => {
     const d = new Date(); d.setDate(d.getDate() + days); d.setHours(12, 0, 0, 0); return fmtLocal(d)
   }
+  const initialTravelStart = useMemo(() => noonPlusDays(1), [])
+  const initialTravelEnd = useMemo(() => noonPlusDays(2), [])
 
   const [originOffset, setOriginOffset] = useState<TzOffset>(-5)
   const [destOffset, setDestOffset] = useState<TzOffset>(1)
@@ -120,8 +141,8 @@ export default function Page() {
   const [originSleepEnd, setOriginSleepEnd] = useState('07:00')
   const [destSleepStart, setDestSleepStart] = useState('23:00')
   const [destSleepEnd, setDestSleepEnd] = useState('07:00')
-  const [travelStart, setTravelStart] = useState(noonPlusDays(1)) // tomorrow 12:00 local
-  const [travelEnd, setTravelEnd] = useState(noonPlusDays(2))     // day after 12:00 local
+  const [travelStart, setTravelStart] = useState(initialTravelStart) // tomorrow 12:00 local
+  const [travelEnd, setTravelEnd] = useState(initialTravelEnd)     // day after 12:00 local
   const [useMelatonin, setUseMelatonin] = useState(true)
   const [useLightDark, setUseLightDark] = useState(true)
   const [useExercise, setUseExercise] = useState(false)
@@ -149,6 +170,57 @@ export default function Page() {
   const [quickSending, setQuickSending] = useState(false)
   const [quickMessage, setQuickMessage] = useState<string | null>(null)
   const [betaEmail, setBetaEmail] = useState('')
+  const [shareCopied, setShareCopied] = useState(false)
+
+  const settingsReadyRef = useRef(false)
+  const shareTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const defaultSettingsRef = useRef<ShareSettings>({
+    v: SETTINGS_VERSION,
+    originTz: DEFAULT_ORIGIN_TZ,
+    destTz: DEFAULT_DEST_TZ,
+    originSleepStart: '23:00',
+    originSleepEnd: '07:00',
+    destSleepStart: '23:00',
+    destSleepEnd: '07:00',
+    travelStart: initialTravelStart,
+    travelEnd: initialTravelEnd,
+    melatonin: true,
+    lightDark: true,
+    exercise: false,
+    startAdjustments: 'after_arrival',
+    preconditionDays: 2,
+  })
+
+  const shareSettings = useMemo<ShareSettings>(() => ({
+    v: SETTINGS_VERSION,
+    originTz: originTimeZone,
+    destTz: destTimeZone,
+    originSleepStart,
+    originSleepEnd,
+    destSleepStart,
+    destSleepEnd,
+    travelStart,
+    travelEnd,
+    melatonin: useMelatonin,
+    lightDark: useLightDark,
+    exercise: useExercise,
+    startAdjustments: adjustmentStart,
+    preconditionDays: preDays,
+  }), [
+    originTimeZone,
+    destTimeZone,
+    originSleepStart,
+    originSleepEnd,
+    destSleepStart,
+    destSleepEnd,
+    travelStart,
+    travelEnd,
+    useMelatonin,
+    useLightDark,
+    useExercise,
+    adjustmentStart,
+    preDays,
+  ])
 
   const originReferenceDate = useMemo(() => pickReferenceDate(travelStart), [travelStart])
   const destReferenceDate = useMemo(() => pickReferenceDate(travelEnd), [travelEnd])
@@ -158,6 +230,38 @@ export default function Page() {
   useEffect(() => {
     // For beta: show on every reload for now
     setBetaOpen(true)
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const encoded = params.get('s')
+    if (!encoded) {
+      settingsReadyRef.current = true
+      return
+    }
+    const decoded = decodeSettingsParam(encoded)
+    if (!decoded) {
+      settingsReadyRef.current = true
+      return
+    }
+    const tzNames = new Set(getAllTimeZoneNames())
+    const sanitized = sanitizeSettings(decoded, defaultSettingsRef.current, tzNames)
+    setOriginTimeZone(sanitized.originTz)
+    setDestTimeZone(sanitized.destTz)
+    setOriginSleepStart(sanitized.originSleepStart)
+    setOriginSleepEnd(sanitized.originSleepEnd)
+    setDestSleepStart(sanitized.destSleepStart)
+    setDestSleepEnd(sanitized.destSleepEnd)
+    setTravelStart(sanitized.travelStart)
+    setTravelEnd(sanitized.travelEnd)
+    setUseMelatonin(sanitized.melatonin)
+    setUseLightDark(sanitized.lightDark)
+    setUseExercise(sanitized.exercise)
+    setAdjustmentStart(sanitized.startAdjustments)
+    setPreDays(sanitized.preconditionDays)
+    setPreDaysStr(String(sanitized.preconditionDays))
+    settingsReadyRef.current = true
   }, [])
 
   useEffect(() => {
@@ -232,6 +336,22 @@ export default function Page() {
     setDestOffset(prev => Math.abs(prev - rounded) > 1e-6 ? rounded : prev)
   }, [destTimeZone, destReferenceDate])
 
+  useEffect(() => {
+    if (!settingsReadyRef.current) return
+    if (typeof window === 'undefined') return
+    const nextUrl = buildShareUrl(window.location.href, shareSettings, defaultSettingsRef.current)
+    if (!nextUrl) return
+    window.history.replaceState(null, '', nextUrl)
+  }, [shareSettings])
+
+  useEffect(() => {
+    return () => {
+      if (shareTimeoutRef.current) {
+        clearTimeout(shareTimeoutRef.current)
+      }
+    }
+  }, [])
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -268,6 +388,34 @@ export default function Page() {
       setLoading(false)
     }
   }
+
+  const handleShare = async () => {
+    if (typeof window === 'undefined') return
+    const shareUrl = buildShareUrl(window.location.href, shareSettings, defaultSettingsRef.current)
+    if (!shareUrl) return
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareUrl)
+      } else {
+        const textarea = document.createElement('textarea')
+        textarea.value = shareUrl
+        textarea.style.position = 'fixed'
+        textarea.style.opacity = '0'
+        document.body.appendChild(textarea)
+        textarea.focus()
+        textarea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textarea)
+      }
+      setShareCopied(true)
+      if (shareTimeoutRef.current) clearTimeout(shareTimeoutRef.current)
+      shareTimeoutRef.current = setTimeout(() => setShareCopied(false), 2000)
+    } catch (e) {
+      console.warn('Failed to copy share link', e)
+    }
+  }
+
+  // removed sample slots loader
 
   return (
     <ThemeProvider theme={theme}>
@@ -975,4 +1123,134 @@ function pickReferenceDate(value: string | null | undefined): Date | null {
   const day = Number(dayStr)
   if ([year, month, day].some(v => Number.isNaN(v))) return null
   return new Date(Date.UTC(year, month - 1, day, 12, 0, 0))
+}
+
+function formatDateTimeLocal(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+function noonPlusDays(days: number): string {
+  const date = new Date()
+  date.setDate(date.getDate() + days)
+  date.setHours(12, 0, 0, 0)
+  return formatDateTimeLocal(date)
+}
+
+function base64UrlEncode(input: string): string {
+  const bytes = new TextEncoder().encode(input)
+  let binary = ''
+  bytes.forEach(byte => {
+    binary += String.fromCharCode(byte)
+  })
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+}
+
+function base64UrlDecode(input: string): string | null {
+  const normalized = input.replace(/-/g, '+').replace(/_/g, '/')
+  const padded = normalized + '==='.slice((normalized.length + 3) % 4)
+  try {
+    const binary = atob(padded)
+    const bytes = Uint8Array.from(binary, char => char.charCodeAt(0))
+    return new TextDecoder().decode(bytes)
+  } catch {
+    return null
+  }
+}
+
+function encodeSettings(settings: ShareSettings): string | null {
+  try {
+    return base64UrlEncode(JSON.stringify(settings))
+  } catch {
+    return null
+  }
+}
+
+function decodeSettingsParam(param: string): unknown | null {
+  const decoded = base64UrlDecode(param)
+  if (!decoded) return null
+  try {
+    return JSON.parse(decoded)
+  } catch {
+    return null
+  }
+}
+
+function coerceBoolean(value: unknown): boolean | null {
+  if (value === true || value === false) return value
+  if (value === 1 || value === '1') return true
+  if (value === 0 || value === '0') return false
+  return null
+}
+
+function coerceDateTimeLocal(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return null
+  return formatDateTimeLocal(parsed)
+}
+
+function sanitizeSettings(raw: unknown, defaults: ShareSettings, tzNames: Set<string>): ShareSettings {
+  if (!raw || typeof raw !== 'object') return defaults
+  const candidate = raw as Record<string, unknown>
+  if (candidate.v !== SETTINGS_VERSION) return defaults
+  const sanitized: ShareSettings = { ...defaults }
+  if (typeof candidate.originTz === 'string' && tzNames.has(candidate.originTz)) {
+    sanitized.originTz = candidate.originTz
+  }
+  if (typeof candidate.destTz === 'string' && tzNames.has(candidate.destTz)) {
+    sanitized.destTz = candidate.destTz
+  }
+  if (typeof candidate.originSleepStart === 'string' && TIME_PATTERN.test(candidate.originSleepStart)) {
+    sanitized.originSleepStart = candidate.originSleepStart
+  }
+  if (typeof candidate.originSleepEnd === 'string' && TIME_PATTERN.test(candidate.originSleepEnd)) {
+    sanitized.originSleepEnd = candidate.originSleepEnd
+  }
+  if (typeof candidate.destSleepStart === 'string' && TIME_PATTERN.test(candidate.destSleepStart)) {
+    sanitized.destSleepStart = candidate.destSleepStart
+  }
+  if (typeof candidate.destSleepEnd === 'string' && TIME_PATTERN.test(candidate.destSleepEnd)) {
+    sanitized.destSleepEnd = candidate.destSleepEnd
+  }
+  const travelStart = coerceDateTimeLocal(candidate.travelStart)
+  if (travelStart) sanitized.travelStart = travelStart
+  const travelEnd = coerceDateTimeLocal(candidate.travelEnd)
+  if (travelEnd) sanitized.travelEnd = travelEnd
+  const melatonin = coerceBoolean(candidate.melatonin)
+  if (melatonin != null) sanitized.melatonin = melatonin
+  const lightDark = coerceBoolean(candidate.lightDark)
+  if (lightDark != null) sanitized.lightDark = lightDark
+  const exercise = coerceBoolean(candidate.exercise)
+  if (exercise != null) sanitized.exercise = exercise
+  if (typeof candidate.startAdjustments === 'string' && ADJUSTMENT_OPTIONS.some(opt => opt.value === candidate.startAdjustments)) {
+    sanitized.startAdjustments = candidate.startAdjustments as AdjustmentStartOption
+  }
+  if (typeof candidate.preconditionDays === 'number' || typeof candidate.preconditionDays === 'string') {
+    const parsed = Number(candidate.preconditionDays)
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      sanitized.preconditionDays = Math.floor(parsed)
+    }
+  }
+  return sanitized
+}
+
+function areSettingsEqual(a: ShareSettings, b: ShareSettings): boolean {
+  return JSON.stringify(a) === JSON.stringify(b)
+}
+
+function buildShareUrl(currentUrl: string, settings: ShareSettings, defaults: ShareSettings): string | null {
+  try {
+    const url = new URL(currentUrl)
+    if (areSettingsEqual(settings, defaults)) {
+      url.searchParams.delete('s')
+      return url.toString()
+    }
+    const encoded = encodeSettings(settings)
+    if (!encoded) return null
+    url.searchParams.set('s', encoded)
+    return url.toString()
+  } catch {
+    return null
+  }
 }
