@@ -23,6 +23,12 @@
 .actions{display:flex;gap:8px;justify-content:flex-end}
 .actions button{background:#111;color:#fff;border:0;padding:10px 14px;border-radius:10px;cursor:pointer}
 .actions button:disabled{opacity:.6;cursor:default}
+.sharePanel{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:12px 14px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;box-shadow:0 8px 20px rgba(15,23,42,0.06)}
+.sharePanelTitle{margin:0 0 4px;font-size:13px;font-weight:600;color:#111827}
+.sharePanelHint{margin:0;font-size:12px;color:#6b7280;max-width:420px}
+.sharePanelInput{flex:1;min-width:220px;padding:8px 10px;border:1px solid #e5e7eb;border-radius:10px;background:#f9fafb;color:#111827;font-size:12px}
+.sharePanelStatus{display:flex;align-items:center;justify-content:flex-end;min-width:70px}
+.sharePanelBadge{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:#166534;background:#dcfce7;border:1px solid #bbf7d0;padding:4px 8px;border-radius:999px}
 .error{color:#b00020}
 .gridWrap{margin-top:24px;}
 .svgGridContainer{width:100%;height:clamp(320px,70vh,820px);border:1px solid #eee;border-radius:10px;background:#fff;overflow-x:auto;overflow-y:hidden}

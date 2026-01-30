@@ -142,6 +142,9 @@ export default function Page() {
   const [nameSuggestion, setNameSuggestion] = useState('')
   const [betaEmail, setBetaEmail] = useState('')
   const [shareCopied, setShareCopied] = useState(false)
+  const [shareUrl, setShareUrl] = useState<string>('')
+  const [shareCopyFailed, setShareCopyFailed] = useState(false)
+  const [sharePanelOpen, setSharePanelOpen] = useState(false)
 
   const settingsReadyRef = useRef(false)
   const shareTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -287,6 +290,14 @@ export default function Page() {
   }, [shareSettings])
 
   useEffect(() => {
+    if (!sharePanelOpen) return
+    if (typeof window === 'undefined') return
+    const nextUrl = buildShareUrl(window.location.href, shareSettings, defaultSettingsRef.current)
+    if (!nextUrl) return
+    setShareUrl(nextUrl)
+  }, [shareSettings, sharePanelOpen])
+
+  useEffect(() => {
     return () => {
       if (shareTimeoutRef.current) {
         clearTimeout(shareTimeoutRef.current)
@@ -333,14 +344,15 @@ export default function Page() {
 
   const handleShare = async () => {
     if (typeof window === 'undefined') return
-    const shareUrl = buildShareUrl(window.location.href, shareSettings, defaultSettingsRef.current)
-    if (!shareUrl) return
+    const nextUrl = buildShareUrl(window.location.href, shareSettings, defaultSettingsRef.current)
+    if (!nextUrl) return
+    setSharePanelOpen(true)
     try {
       if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(shareUrl)
+        await navigator.clipboard.writeText(nextUrl)
       } else {
         const textarea = document.createElement('textarea')
-        textarea.value = shareUrl
+        textarea.value = nextUrl
         textarea.style.position = 'fixed'
         textarea.style.opacity = '0'
         document.body.appendChild(textarea)
@@ -350,10 +362,14 @@ export default function Page() {
         document.body.removeChild(textarea)
       }
       setShareCopied(true)
+      setShareCopyFailed(false)
+      setShareUrl(nextUrl)
       if (shareTimeoutRef.current) clearTimeout(shareTimeoutRef.current)
       shareTimeoutRef.current = setTimeout(() => setShareCopied(false), 2000)
     } catch (e) {
       console.warn('Failed to copy share link', e)
+      setShareCopyFailed(true)
+      setShareUrl(nextUrl)
     }
   }
 
@@ -461,6 +477,26 @@ export default function Page() {
             Report a problem or suggestion
           </button>
         </div>
+        {sharePanelOpen && !!shareUrl && (
+          <div className={styles.sharePanel}>
+            <div>
+              <p className={styles.sharePanelTitle}>Share this plan</p>
+              <p className={styles.sharePanelHint}>
+                {shareCopyFailed ? 'Clipboard copy failed — select the link to copy it manually.' : 'Copy and send this link. You can also select it manually.'}
+              </p>
+            </div>
+            <input
+              className={styles.sharePanelInput}
+              type="text"
+              readOnly
+              value={shareUrl}
+              onFocus={event => event.currentTarget.select()}
+            />
+            <div className={styles.sharePanelStatus}>
+              {shareCopied && <span className={styles.sharePanelBadge}>Copied</span>}
+            </div>
+          </div>
+        )}
       </form>
 
       {error && <p className={styles.error}>{error}</p>}
