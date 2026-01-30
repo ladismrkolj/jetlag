@@ -2,9 +2,6 @@
 .title{font-weight:600;letter-spacing:0.2px;margin-bottom:16px}
 .form{display:flex;flex-direction:column;gap:12px;background:#fafafa;border:1px solid #eee;border-radius:12px;padding:16px}
 .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-.row select{min-width:200px}
-.row label{font-size:12px;color:#444;margin-right:6px}
-.row input[type="number"],.row input[type="time"],.row input[type="datetime-local"],.row select{padding:6px 8px;border:1px solid #ddd;border-radius:8px;background:#fff}
 .timezoneSelect{min-width:220px;flex:1;position:relative}
 .timezoneSelect :global(.timezoneSelect__control){min-height:32px;border-radius:8px;border:1px solid #ddd;box-shadow:none;display:flex;align-items:center;gap:4px;padding:0 6px;background:#fff}
 .timezoneSelect :global(.timezoneSelect__control--is-focused){border-color:#9ca3af;box-shadow:0 0 0 1px #9ca3af}
@@ -23,8 +20,8 @@
 .preDaysControl{display:flex;align-items:center;gap:6px}
 .preDaysControl label{margin-right:0}
 .preDaysControl input:disabled{background:#f5f5f5;color:#888;cursor:not-allowed}
-.tipsSection{margin:32px 0;padding:24px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 10px 26px rgba(15,23,42,0.05);color:#0f172a}
-.tipsTitle{margin:0 0 16px;font-size:20px;font-weight:600;letter-spacing:0.2px}
+.tipsSection{margin:32px 0;padding:24px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;box-shadow:none;color:#0f172a}
+.tipsTitle{margin:0 0 16px;font-size:20px;font-weight:700;letter-spacing:0.2px}
 .tipGrid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
 .tipCard{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:8px;box-shadow:0 6px 18px rgba(15,23,42,0.04)}
 .tipCard h3{margin:0;font-size:16px;font-weight:600;color:#0f172a}
@@ -33,8 +30,6 @@
 .tipCard li{margin-bottom:6px}
 .tipCard li:last-child{margin-bottom:0}
 .actions{display:flex;gap:8px;justify-content:flex-end}
-.actions button{background:#111;color:#fff;border:0;padding:10px 14px;border-radius:10px;cursor:pointer}
-.actions button:disabled{opacity:.6;cursor:default}
 .error{color:#b00020}
 .gridWrap{margin-top:24px;}
 .svgGridContainer{width:100%;height:clamp(320px,70vh,820px);border:1px solid #eee;border-radius:10px;background:#fff;overflow-x:auto;overflow-y:hidden}
@@ -57,13 +52,12 @@
   .legendBox::before{print-color-adjust:exact;-webkit-print-color-adjust:exact}
 }
 .printBanner{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 16px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;margin-bottom:16px}
-.printBannerText{display:flex;flex-direction:column;gap:4px;font-size:12px;color:#374151}
-.printBannerTitle{font-size:18px;color:#111827}
+.printBannerText{display:flex;flex-direction:column;gap:2px;font-size:12px;color:#374151}
+.printBannerTitle{font-size:18px;color:#111827;font-weight:700}
 .printBannerQr{width:96px;height:96px;border:1px solid #e5e7eb;border-radius:8px;background:#fff}
-.bizLink{display:inline-flex;align-items:center;justify-content:center;gap:8px;margin-bottom:16px;padding:10px 14px;border-radius:10px;border:1px solid #111;background:#111;color:#fff;text-decoration:none;font-size:13px;font-weight:600}
-.bizLink:hover{background:#1f2937;border-color:#1f2937}
+.bizLink{margin-bottom:16px;text-decoration:none}
 .bizEmail{display:none}
-.explanation{margin-top:32px;padding:24px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;line-height:1.65;color:#1f2937;box-shadow:0 6px 18px rgba(15,23,42,0.06)}
+.explanation{margin-top:32px;padding:24px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;line-height:1.65;color:#1f2937;box-shadow:none}
 .explanation h2{margin:0 0 16px;font-size:22px;font-weight:600;color:#111827}
 .explanation h3{margin:24px 0 12px;font-size:18px;font-weight:600;color:#111827}
 .explanation p{margin:0 0 16px}
@@ -73,8 +67,6 @@
 .explanation code{background:#f3f4f6;padding:2px 4px;border-radius:4px;font-size:.95em;font-family:SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;color:#111827}
 .explanation a{color:#2563eb;text-decoration:underline}
 .explanation a:hover{text-decoration:none}
-.reportBtn{background:#111;color:#fff;border:0;padding:10px 14px;border-radius:10px;cursor:pointer}
-.reportBtn:disabled{opacity:.6;cursor:default}
 .siteFooter{margin:40px 0 16px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;border-top:1px solid #e5e7eb;padding-top:16px}
 .footerMeta{display:flex;flex-direction:column;gap:4px;font-size:12px;color:#4b5563}
 .footerText{line-height:1.5}
@@ -100,7 +92,7 @@
 .emojiButton:hover{transform:translateY(-1px) scale(1.05)}
 .legend{display:flex;gap:12px;align-items:center;margin-bottom:8px}
 .legendBox{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#111;background:transparent}
-.legendBox::before{content:"";display:inline-block;width:14px;height:14px;border-radius:4px;background:#ddd;border:1px solid #ccc;text-align:center;line-height:14px;font-size:10px;font-weight:700;color:#111}
+.legendBox::before{content:"";display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:4px;background:#ddd;border:1px solid #ccc;text-align:center;line-height:1;font-size:10px;font-weight:700;color:#111}
 .legend .sleep::before{background:#d1d5db}
 .legend .light::before{background:#fef08a}
 .legend .dark::before{background:#000000}
