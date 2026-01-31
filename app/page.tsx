@@ -1085,6 +1085,7 @@ function groupEventsByUTCDate(events: any[]) {
       const slotStart = new Date(d.getTime() + i*30*60*1000)
       const slotEnd = new Date(d.getTime() + (i+1)*30*60*1000)
       const flags = { is_sleep:false, is_light:false, is_dark:false, is_travel:false, is_exercise:false, is_melatonin:false, is_cbtmin:false }
+      let sleepCoversSlot = false
       for (const e of events) {
         const es = parseUTC(e.start)
         const ee = parseUTC(e.end)
@@ -1098,7 +1099,15 @@ function groupEventsByUTCDate(events: any[]) {
           for (const k of Object.keys(flags) as (keyof typeof flags)[]) {
             if (e[k]) flags[k] = true
           }
+          if (e.is_sleep && es && ee && es <= slotStart && ee >= slotEnd) {
+            sleepCoversSlot = true
+          }
         }
+      }
+      if (sleepCoversSlot) {
+        flags.is_light = false
+        flags.is_dark = false
+        flags.is_exercise = false
       }
       slots.push({ ...flags, start: slotStart.toISOString(), end: slotEnd.toISOString() })
     }
