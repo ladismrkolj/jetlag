@@ -32,8 +32,35 @@
 .actions{display:flex;gap:8px;justify-content:flex-end}
 .error{color:#b00020}
 .gridWrap{margin-top:24px;}
-.svgGridContainer{width:100%;height:clamp(320px,70vh,820px);border:1px solid #eee;border-radius:10px;background:#fff;overflow-x:auto;overflow-y:hidden}
-.svgGrid{height:100%;display:block}
+.timelineScroll{width:100%;height:clamp(320px,70vh,820px);border:1px solid #eee;border-radius:10px;background:#fff;overflow-x:auto;overflow-y:hidden;position:relative}
+.timelineCanvas{position:relative;display:block;min-height:100%;background:#fff}
+.timelineHeaderGroup{position:sticky;top:0;z-index:5;background:#fff}
+.timelineBody{display:flex;flex-direction:column}
+.timelineRow{display:grid;grid-template-columns:var(--labelW) repeat(var(--bins), var(--colW));align-items:stretch;min-height:28px;position:relative}
+.timelineHeaderRow{min-height:32px;border-bottom:1px solid #e5e7eb;background:#fff}
+.timelineFooterRow{min-height:32px;border-top:1px solid #e5e7eb;background:#fff}
+.timelineDayRow{border-bottom:1px solid #e5e7eb}
+.timelineLabel{position:sticky;left:0;z-index:5;display:flex;flex-direction:column;justify-content:center;padding:4px 8px;background:#fff;color:#374151;font-size:11px}
+.timelineHeaderLabel{font-weight:600;color:#111827}
+.timelineHeaderTitle{font-size:11px;line-height:1}
+.timelineHeaderOffset{font-size:10px;color:#6b7280}
+.timelineDayLabel{font-size:11px;text-transform:none}
+.timelineGridLine{grid-row:1;align-self:stretch;justify-self:start;width:0;border-left:1px solid #e5e7eb;z-index:3}
+.timelineGridLineMajor{border-left:1.6px solid #c4c4c4}
+.timelineGridLinePrimary{border-left:2px solid #9ca3af}
+.timelineGridLineMinor{border-left:1px solid #e5e7eb}
+.timelineHourLabel{font-size:10px;color:#4b5563;font-weight:600;align-self:center;justify-self:stretch;text-align:center;padding-left:0;z-index:2}
+.timelineSegment{grid-row:1;align-self:stretch;border-radius:0;z-index:1}
+.timelineSleep{background:#d1d5db}
+.timelineLight{background:#fef08a}
+.timelineDark{background:#000}
+.timelineMarker{grid-row:1;align-self:center;justify-self:center;z-index:4;font-size:9px;font-weight:700;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;max-width:100%;max-height:100%}
+.markerTravel{background:#ffffffcc;border:1px solid #9ca3af;color:#111827}
+.markerMelatonin{background:#ffffffcc;border:1px solid #ef4444;color:#b91c1c}
+.markerCbtmin{width:6px;height:6px;border-radius:50%;background:#ef4444;font-size:0}
+.markerExercise{width:14px;height:14px;border-radius:4px;border:2px solid #22c55e;background:transparent}
+.timelineOverlay{position:absolute;inset:0;pointer-events:none;z-index:6}
+.timelineOverlayAnchor{position:absolute;top:0;left:0;width:0;height:0}
 @media print{
   .main{padding:12px}
   .form{gap:8px;padding:10px;border-radius:10px}
@@ -46,8 +73,10 @@
   .printBannerText{font-size:10px}
   .printBannerTitle{font-size:14px}
   .printBannerQr{width:80px;height:80px}
-  .svgGridContainer{overflow:visible;height:auto}
-  .svgGrid{width:100%;height:auto}
+  .timelineScroll{overflow:visible;height:auto}
+  .timelineCanvas{width:100%;min-height:auto;--colW:calc((100% - var(--labelW)) / var(--bins))}
+  .timelineHeaderGroup{position:static}
+  .timelineLabel{position:static}
   .legend{print-color-adjust:exact;-webkit-print-color-adjust:exact}
   .legendBox::before{print-color-adjust:exact;-webkit-print-color-adjust:exact}
 }

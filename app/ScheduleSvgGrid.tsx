@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import styles from './page.module.css'
 
 type Slot = {
@@ -20,25 +20,15 @@ type ScheduleSvgGridProps = {
   destOffset: number
 }
 
+type SlotSegment = {
+  start: number
+  end: number
+}
+
 const NUM_SLOTS = 48
-
-const COLORS = {
-  background: '#ffffff',
-  grid: '#e5e7eb',
-  gridMajor: '#d4d4d8',
-  sleep: '#9ca3af',
-  light: '#fef08a',
-  dark: '#000000',
-  travel: '#cbd5e1',
-  exercise: '#22c55e',
-  marker: '#ef4444',
-  label: '#111827',
-  labelMuted: '#374151',
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value))
-}
+const DEFAULT_LABEL_W = 140
+const MIN_COL_W = 16
+const NARROW_BREAKPOINT = 640
 
 function hourLabels(offset: number) {
   return Array.from({ length: 24 }, (_, h) => ((h + offset + 24) % 24))
@@ -46,11 +36,6 @@ function hourLabels(offset: number) {
 
 function formatHour(hour: number) {
   return hour.toString().padStart(2, '0')
-}
-
-function baseFill(slot: Slot) {
-  if (slot.is_sleep) return COLORS.sleep
-  return COLORS.background
 }
 
 function useResizeObserver<T extends HTMLElement>() {
@@ -86,267 +71,237 @@ function useResizeObserver<T extends HTMLElement>() {
   return { ref, size }
 }
 
+function compressSlots(slots: Slot[], bins: number) {
+  const slotsPerBin = NUM_SLOTS / bins
+  if (slotsPerBin === 1) return slots
+  return Array.from({ length: bins }, (_, bin) => {
+    const start = bin * slotsPerBin
+    const slice = slots.slice(start, start + slotsPerBin)
+    return slice.reduce<Slot>((acc, slot) => ({
+      is_sleep: acc.is_sleep || slot.is_sleep,
+      is_light: acc.is_light || slot.is_light,
+      is_dark: acc.is_dark || slot.is_dark,
+      is_travel: acc.is_travel || slot.is_travel,
+      is_exercise: acc.is_exercise || slot.is_exercise,
+      is_melatonin: acc.is_melatonin || slot.is_melatonin,
+      is_cbtmin: acc.is_cbtmin || slot.is_cbtmin,
+    }), {
+      is_sleep: false,
+      is_light: false,
+      is_dark: false,
+      is_travel: false,
+      is_exercise: false,
+      is_melatonin: false,
+      is_cbtmin: false,
+    })
+  })
+}
+
+function buildSegments(slots: Slot[], predicate: (slot: Slot) => boolean) {
+  const segments: SlotSegment[] = []
+  let start: number | null = null
+  slots.forEach((slot, index) => {
+    if (predicate(slot)) {
+      if (start === null) start = index
+      return
+    }
+    if (start !== null) {
+      segments.push({ start, end: index })
+      start = null
+    }
+  })
+  if (start !== null) segments.push({ start, end: slots.length })
+  return segments
+}
+
 export default function ScheduleSvgGrid({ days, originOffset, destOffset }: ScheduleSvgGridProps) {
+  const scrollRef = useRef<HTMLDivElement | null>(null)
   const { ref, size } = useResizeObserver<HTMLDivElement>()
+  const [scrollLeft, setScrollLeft] = useState(0)
+
+  const width = size.width
+  const bins = width > 0 && width < NARROW_BREAKPOINT ? 24 : 48
+  const colW = Math.max(MIN_COL_W, (width - DEFAULT_LABEL_W) / bins || MIN_COL_W)
+  const canvasWidth = DEFAULT_LABEL_W + bins * colW
+  const binsPerHour = bins / 24
+  const showMinorLines = colW >= 10
+
   const hoursOrigin = useMemo(() => hourLabels(originOffset), [originOffset])
   const hoursDest = useMemo(() => hourLabels(destOffset), [destOffset])
+  const hoursUtc = useMemo(() => hourLabels(0), [])
+  const showUtc = originOffset !== destOffset
 
-  const numDays = days.length
-  const width = size.width
-  const height = size.height
+  const compressedDays = useMemo(() => days.map(day => ({
+    ...day,
+    slots: compressSlots(day.slots, bins),
+  })), [days, bins])
 
-  const leftLabelW = clamp(width * 0.1, 48, 110)
-  const minCellW = 16
-  const minGridW = NUM_SLOTS * minCellW
-  const svgWidth = Math.max(width, leftLabelW + minGridW)
-  const topHeaderH = clamp(height * 0.1, 26, 52)
-  const bottomHeaderH = clamp(height * 0.08, 24, 46)
-  const gridW = Math.max(0, svgWidth - leftLabelW)
-  const gridH = Math.max(0, height - topHeaderH - bottomHeaderH)
-  const cellW = gridW / NUM_SLOTS
-  const cellH = numDays ? gridH / numDays : 0
+  useEffect(() => {
+    if (!scrollRef.current) return
+    const node = scrollRef.current
+    const handleScroll = () => setScrollLeft(node.scrollLeft)
+    handleScroll()
+    node.addEventListener('scroll', handleScroll, { passive: true })
+    return () => node.removeEventListener('scroll', handleScroll)
+  }, [])
 
-  const showMinorLines = cellW >= 10
-  const shortDayLabels = cellH < 18 || leftLabelW < 90
+  const timeBinToX = useCallback((binIndex: number) => {
+    return DEFAULT_LABEL_W + binIndex * colW - scrollLeft
+  }, [colW, scrollLeft])
 
-  const headerFont = clamp(cellH * 0.66, 9, 12)
-  const headerLineGap = headerFont * 0.3
-  const labelFont = clamp(cellH * 0.6, 10, 12)
-  const timeFont = clamp(cellH * 0.6, 9, 11)
+  const gridStyle = {
+    '--bins': bins,
+    '--labelW': `${DEFAULT_LABEL_W}px`,
+    '--colW': `${colW}px`,
+    width: `${canvasWidth}px`,
+  } as React.CSSProperties
 
-  const dotRadius = clamp(Math.min(cellW, cellH) * 0.22, 3, 6)
-  const badgeFont = clamp(Math.min(cellW, cellH) * 0.6, 8, 12)
-  const badgePadding = clamp(Math.min(cellW, cellH) * 0.16, 2, 3)
-  const badgeSize = badgeFont + badgePadding * 2
+  const renderGridLines = (keyPrefix: string) => (
+    <>
+      {Array.from({ length: bins + 1 }, (_, i) => {
+        const isHour = i % binsPerHour === 0
+        const hourIndex = isHour ? i / binsPerHour : 0
+        const isPrimaryHour = isHour && hourIndex % 2 === 1
+        if (!showMinorLines && !isHour) return null
+        return (
+          <span
+            key={`${keyPrefix}-line-${i}`}
+            className={`${styles.timelineGridLine} ${
+              isHour
+                ? isPrimaryHour
+                  ? styles.timelineGridLinePrimary
+                  : styles.timelineGridLineMajor
+                : styles.timelineGridLineMinor
+            }`}
+            style={{ gridColumn: `${i + 2} / span 1` }}
+          />
+        )
+      })}
+    </>
+  )
+
+  const renderScaleRow = (
+    label: string,
+    offset: number,
+    hours: number[],
+    key: string,
+    rowClassName?: string,
+  ) => (
+    <div className={`${styles.timelineRow} ${rowClassName ?? styles.timelineHeaderRow}`} key={key}>
+      <div className={`${styles.timelineLabel} ${styles.timelineHeaderLabel}`}>
+        <span className={styles.timelineHeaderTitle}>{label}</span>
+        <span className={styles.timelineHeaderOffset}>
+          (UTC{offset >= 0 ? '+' : ''}{offset})
+        </span>
+      </div>
+      {hours.map((hour, index) => (
+        <span
+          key={`${key}-hour-${hour}-${index}`}
+          className={styles.timelineHourLabel}
+          style={{ gridColumn: `${index * binsPerHour + 2} / span ${binsPerHour}` }}
+        >
+          {formatHour(hour)}
+        </span>
+      ))}
+    </div>
+  )
 
   return (
-    <div className={styles.svgGridContainer} ref={ref}>
-      <svg
-        className={styles.svgGrid}
-        role="img"
-        aria-label="Schedule grid"
-        width={svgWidth}
-        height={height}
-        viewBox={`0 0 ${svgWidth} ${height}`}
-        preserveAspectRatio="xMinYMin meet"
-      >
-        <rect x={0} y={0} width={svgWidth} height={height} fill={COLORS.background} />
-        {gridW > 0 && gridH > 0 && numDays > 0 && (
-          <>
-            {days.map((day, dayIndex) => (
-              <g key={day.date}>
-                {day.slots.map((slot, slotIndex) => {
-                  const x = leftLabelW + slotIndex * cellW
-                  const y = topHeaderH + dayIndex * cellH
-                  const fill = baseFill(slot)
+    <div className={styles.timelineScroll} ref={node => {
+      scrollRef.current = node
+      ref.current = node
+    }}>
+      <div className={styles.timelineCanvas} style={gridStyle}>
+        <div className={styles.timelineHeaderGroup}>
+          {renderScaleRow('Origin', originOffset, hoursOrigin, 'origin', styles.timelineHeaderRow)}
+          {showUtc && renderScaleRow('UTC', 0, hoursUtc, 'utc', styles.timelineHeaderRow)}
+        </div>
+        <div className={styles.timelineBody}>
+          {compressedDays.map(day => {
+            const sleepSegments = buildSegments(day.slots, slot => slot.is_sleep)
+            const lightSegments = buildSegments(day.slots, slot => slot.is_light)
+            const darkSegments = buildSegments(day.slots, slot => slot.is_dark)
+            const label = day.date
+            return (
+              <div className={`${styles.timelineRow} ${styles.timelineDayRow}`} key={day.date}>
+                <div className={`${styles.timelineLabel} ${styles.timelineDayLabel}`}>
+                  {label}
+                </div>
+                {renderGridLines(`${day.date}-grid`)}
+                {sleepSegments.map((segment, index) => (
+                  <span
+                    key={`${day.date}-sleep-${index}`}
+                    className={`${styles.timelineSegment} ${styles.timelineSleep}`}
+                    style={{ gridColumn: `${segment.start + 2} / ${segment.end + 2}` }}
+                  />
+                ))}
+                {lightSegments.map((segment, index) => (
+                  <span
+                    key={`${day.date}-light-${index}`}
+                    className={`${styles.timelineSegment} ${styles.timelineLight}`}
+                    style={{ gridColumn: `${segment.start + 2} / ${segment.end + 2}` }}
+                  />
+                ))}
+                {darkSegments.map((segment, index) => (
+                  <span
+                    key={`${day.date}-dark-${index}`}
+                    className={`${styles.timelineSegment} ${styles.timelineDark}`}
+                    style={{ gridColumn: `${segment.start + 2} / ${segment.end + 2}` }}
+                  />
+                ))}
+                {day.slots.map((slot, index) => {
+                  if (!slot.is_travel) return null
                   return (
-                    <g key={`${day.date}:${slotIndex}`}>
-                      <rect x={x} y={y} width={cellW} height={cellH} fill={fill} />
-                      {slot.is_travel && (
-                        <rect x={x} y={y} width={cellW} height={cellH} fill={COLORS.travel} />
-                      )}
-                      {slot.is_light && (
-                        <rect x={x} y={y} width={cellW} height={cellH} fill={COLORS.light} />
-                      )}
-                      {slot.is_dark && (
-                        <rect x={x} y={y} width={cellW} height={cellH} fill={COLORS.dark} />
-                      )}
-                      {slot.is_exercise && (
-                        <rect
-                          x={x + 0.5}
-                          y={y + 0.5}
-                          width={Math.max(0, cellW - 1)}
-                          height={Math.max(0, cellH - 1)}
-                          fill="none"
-                          stroke={COLORS.exercise}
-                          strokeWidth={1.4}
-                        />
-                      )}
-                      {slot.is_travel && (
-                        <g>
-                          <rect
-                            x={x + (cellW - badgeSize) / 2}
-                            y={y + (cellH - badgeSize) / 2}
-                            width={badgeSize}
-                            height={badgeSize}
-                            rx={2}
-                            fill="#ffffffcc"
-                            stroke="#9ca3af"
-                            strokeWidth={0.8}
-                          />
-                          <text
-                            x={x + cellW / 2}
-                            y={y + cellH / 2}
-                            fontSize={badgeFont}
-                            fill="#111827"
-                            fontWeight={700}
-                            textAnchor="middle"
-                            dominantBaseline="middle"
-                          >
-                            t
-                          </text>
-                        </g>
-                      )}
-                      {slot.is_melatonin && (
-                        <g>
-                          <rect
-                            x={x + (cellW - badgeSize) / 2}
-                            y={y + (cellH - badgeSize) / 2}
-                            width={badgeSize}
-                            height={badgeSize}
-                            rx={2}
-                            fill="#ffffffcc"
-                            stroke={COLORS.marker}
-                            strokeWidth={0.8}
-                          />
-                          <text
-                            x={x + cellW / 2}
-                            y={y + cellH / 2}
-                            fontSize={badgeFont}
-                            fill="#b91c1c"
-                            fontWeight={700}
-                            textAnchor="middle"
-                            dominantBaseline="middle"
-                          >
-                            M
-                          </text>
-                        </g>
-                      )}
-                      {slot.is_cbtmin && (
-                        <circle
-                          cx={x + cellW / 2}
-                          cy={y + cellH / 2}
-                          r={dotRadius}
-                          fill={COLORS.marker}
-                        />
-                      )}
-                    </g>
+                    <span
+                      key={`${day.date}-travel-${index}`}
+                      className={`${styles.timelineMarker} ${styles.markerTravel}`}
+                      style={{ gridColumn: `${index + 2} / span 1` }}
+                    >
+                      t
+                    </span>
                   )
                 })}
-              </g>
-            ))}
-
-            <rect
-              x={leftLabelW}
-              y={topHeaderH}
-              width={gridW}
-              height={gridH}
-              fill="none"
-              stroke={COLORS.gridMajor}
-              strokeWidth={1}
-            />
-
-            {Array.from({ length: numDays + 1 }, (_, i) => {
-              const y = topHeaderH + i * cellH
-              return (
-                <line
-                  key={`h-${i}`}
-                  x1={leftLabelW}
-                  x2={leftLabelW + gridW}
-                  y1={y}
-                  y2={y}
-                  stroke={COLORS.grid}
-                  strokeWidth={1}
-                />
-              )
-            })}
-
-            {Array.from({ length: NUM_SLOTS + 1 }, (_, i) => {
-              const x = leftLabelW + i * cellW
-              const isHour = i % 2 === 0
-              if (!showMinorLines && !isHour) return null
-              return (
-                <line
-                  key={`v-${i}`}
-                  x1={x}
-                  x2={x}
-                  y1={topHeaderH}
-                  y2={topHeaderH + gridH}
-                  stroke={isHour ? COLORS.gridMajor : COLORS.grid}
-                  strokeWidth={isHour ? 1.4 : 1}
-                />
-              )
-            })}
-
-            {days.map((day, dayIndex) => {
-              const label = shortDayLabels ? day.date.slice(5) : day.date
-              const y = topHeaderH + dayIndex * cellH + cellH / 2
-              return (
-                <text
-                  key={`day-${day.date}`}
-                  x={8}
-                  y={y}
-                  fontSize={labelFont}
-                  fill={COLORS.labelMuted}
-                  dominantBaseline="middle"
-                >
-                  {label}
-                </text>
-              )
-            })}
-
-            <text
-              x={8}
-              y={topHeaderH / 2}
-              fontSize={headerFont}
-              fill={COLORS.label}
-              dominantBaseline="middle"
-              fontWeight={600}
-            >
-              <tspan x={8} dy={-(headerFont * 0.5 + headerLineGap / 2)}>Origin</tspan>
-              <tspan x={8} dy={headerFont + headerLineGap}>(UTC{originOffset >= 0 ? '+' : ''}{originOffset})</tspan>
-            </text>
-
-            {hoursOrigin.map((h, idx) => {
-              const x = leftLabelW + idx * 2 * cellW + 2
-              return (
-                <text
-                  key={`origin-hour-${idx}`}
-                  x={x}
-                  y={topHeaderH / 2}
-                  fontSize={timeFont}
-                  fill={COLORS.labelMuted}
-                  textAnchor="start"
-                  dominantBaseline="middle"
-                  fontWeight={600}
-                >
-                  {formatHour(h)}
-                </text>
-              )
-            })}
-
-            <text
-              x={8}
-              y={topHeaderH + gridH + bottomHeaderH / 2}
-              fontSize={headerFont}
-              fill={COLORS.label}
-              dominantBaseline="middle"
-              fontWeight={600}
-            >
-              <tspan x={8} dy={-(headerFont * 0.5 + headerLineGap / 2)}>Destination</tspan>
-              <tspan x={8} dy={headerFont + headerLineGap}>(UTC{destOffset >= 0 ? '+' : ''}{destOffset})</tspan>
-            </text>
-
-            {hoursDest.map((h, idx) => {
-              const x = leftLabelW + idx * 2 * cellW + 2
-              return (
-                <text
-                  key={`dest-hour-${idx}`}
-                  x={x}
-                  y={topHeaderH + gridH + bottomHeaderH / 2}
-                  fontSize={timeFont}
-                  fill={COLORS.labelMuted}
-                  textAnchor="start"
-                  dominantBaseline="middle"
-                  fontWeight={600}
-                >
-                  {formatHour(h)}
-                </text>
-              )
-            })}
-          </>
-        )}
-      </svg>
+                {day.slots.map((slot, index) => {
+                  if (!slot.is_exercise) return null
+                  return (
+                    <span
+                      key={`${day.date}-exercise-${index}`}
+                      className={`${styles.timelineMarker} ${styles.markerExercise}`}
+                      style={{ gridColumn: `${index + 2} / span 1` }}
+                    />
+                  )
+                })}
+                {day.slots.map((slot, index) => {
+                  if (!slot.is_melatonin) return null
+                  return (
+                    <span
+                      key={`${day.date}-melatonin-${index}`}
+                      className={`${styles.timelineMarker} ${styles.markerMelatonin}`}
+                      style={{ gridColumn: `${index + 2} / span 1` }}
+                    >
+                      M
+                    </span>
+                  )
+                })}
+                {day.slots.map((slot, index) => {
+                  if (!slot.is_cbtmin) return null
+                  return (
+                    <span
+                      key={`${day.date}-cbtmin-${index}`}
+                      className={`${styles.timelineMarker} ${styles.markerCbtmin}`}
+                      style={{ gridColumn: `${index + 2} / span 1` }}
+                    />
+                  )
+                })}
+              </div>
+            )
+          })}
+          {renderScaleRow('Destination', destOffset, hoursDest, 'dest', styles.timelineFooterRow)}
+        </div>
+      </div>
+      <div className={styles.timelineOverlay} aria-hidden="true">
+        <div className={styles.timelineOverlayAnchor} style={{ left: timeBinToX(0) }} />
+      </div>
     </div>
   )
 }
