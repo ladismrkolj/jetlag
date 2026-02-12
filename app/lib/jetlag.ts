@@ -37,14 +37,17 @@ const EPSILON = 1e-6
 
 type Interval = [Date, Date]
 
-type InterventionTuple = [
-  [boolean, Date],
-  [boolean, [Date, Date]],
-  [boolean, [Date, Date]],
-  [boolean, [Date, Date]]
-]
+type InterventionSchedule = {
+  melatonin: { enabled: boolean; at: Date }
+  exercise: { enabled: boolean; window: Interval }
+  light: { enabled: boolean; window: Interval }
+  dark: { enabled: boolean; window: Interval }
+}
 
-type CBTEntry = [Date, InterventionTuple]
+type CBTEntry = {
+  cbtmin: Date
+  interventions: InterventionSchedule
+}
 
 const PRESETS = {
   default: {
@@ -84,13 +87,20 @@ const addHours = (date: Date, hours: number) => new Date(date.getTime() + hours 
 const addDays = (date: Date, days: number) => new Date(date.getTime() + days * MS_DAY)
 
 const normalizeMinutes = (minutes: number) => mod(minutes, 24 * 60)
-
 const sumTimeDelta = (timeMinutes: number, deltaHours: number) =>
   normalizeMinutes(timeMinutes + deltaHours * 60)
 
-const subtractTimes = (timeMinutes1: number, timeMinutes2: number) => timeMinutes1 - timeMinutes2
-
 const hoursFromMinutes = (minutes: number) => minutes / 60
+
+const toIso = (dt: Date) => dt.toISOString().replace('.000Z', 'Z')
+
+const midnightForDatetime = (dt: Date) =>
+  new Date(Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate(), 0, 0, 0, 0))
+
+const combineDateMinutes = (date: Date, minutesFromMidnight: number) => {
+  const midnight = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0, 0)
+  return new Date(midnight + minutesFromMidnight * MS_MINUTE)
+}
 
 const intersectionHours = (interval1: Interval, interval2: Interval) => {
   const [start1, end1] = interval1
@@ -103,25 +113,32 @@ const intersectionHours = (interval1: Interval, interval2: Interval) => {
 
 const isInsideInterval = (ts: Date, interval: Interval) => ts >= interval[0] && ts < interval[1]
 
-const midnightForDatetime = (dt: Date) =>
-  new Date(Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate(), 0, 0, 0, 0))
-
-const toIso = (dt: Date) => dt.toISOString().replace('.000Z', 'Z')
-
-const combineDateMinutes = (date: Date, minutesFromMidnight: number) => {
-  const midnight = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0, 0)
-  return new Date(midnight + minutesFromMidnight * MS_MINUTE)
+const subtractIntervals = (interval: Interval, exclusions: Interval[]) => {
+  const [start, end] = interval
+  if (start >= end) return []
+  if (exclusions.length === 0) return [[start, end]] as Interval[]
+  const sorted = [...exclusions].sort((a, b) => a[0].getTime() - b[0].getTime())
+  const result: Interval[] = []
+  let cursor = start
+  for (const [exclusionStart, exclusionEnd] of sorted) {
+    if (exclusionEnd <= cursor) continue
+    if (exclusionStart >= end) break
+    if (exclusionStart > cursor) {
+      result.push([cursor, new Date(Math.min(exclusionStart.getTime(), end.getTime()))])
+    }
+    cursor = new Date(Math.max(cursor.getTime(), exclusionEnd.getTime()))
+    if (cursor >= end) break
+  }
+  if (cursor < end) {
+    result.push([cursor, end])
+  }
+  return result
 }
 
-const nextInterval = (
-  time: Date,
-  interval: [number, number],
-  filterWindow: Interval | null = null,
-): [Date | null, Date | null] => {
+const nextInterval = (time: Date, interval: [number, number], filterWindow: Interval | null = null) => {
   const [startTimeMinutes, endTimeMinutes] = interval
-  const refDate = time
-  let startDt = combineDateMinutes(refDate, startTimeMinutes)
-  let endDt = combineDateMinutes(refDate, endTimeMinutes)
+  let startDt = combineDateMinutes(time, startTimeMinutes)
+  let endDt = combineDateMinutes(time, endTimeMinutes)
 
   if (endDt <= startDt) {
     endDt = addDays(endDt, 1)
@@ -162,210 +179,45 @@ const nextInterval = (
   return [startDt, endDt]
 }
 
-const subtractIntervals = (interval: Interval, exclusions: Interval[]) => {
-  const [start, end] = interval
-  if (start >= end) return []
-  if (exclusions.length === 0) return [[start, end]] as Interval[]
-  const sorted = [...exclusions].sort((a, b) => a[0].getTime() - b[0].getTime())
-  const result: Interval[] = []
-  let cursor = start
-  for (const [exclusionStart, exclusionEnd] of sorted) {
-    if (exclusionEnd <= cursor) continue
-    if (exclusionStart >= end) break
-    if (exclusionStart > cursor) {
-      result.push([cursor, new Date(Math.min(exclusionStart.getTime(), end.getTime()))])
-    }
-    cursor = new Date(Math.max(cursor.getTime(), exclusionEnd.getTime()))
-    if (cursor >= end) break
-  }
-  if (cursor < end) {
-    result.push([cursor, end])
-  }
-  return result
+const signedDiffHours = (destMinutes: number, currentMinutes: number) => {
+  const diff = hoursFromMinutes(destMinutes - currentMinutes)
+  let norm = mod(diff + 12, 24) - 12
+  if (norm === -12) norm = 12
+  return norm
 }
 
-class CBTmin {
-  originCbtmin: number
-  destCbtmin: number
-  presets: typeof PRESETS.default
-  cbtmin: number
-  phase_direction: string
-
-  constructor(originCbtmin: number, destCbtmin: number, shiftPreset = 'default') {
-    this.originCbtmin = originCbtmin
-    this.destCbtmin = destCbtmin
-    this.presets = PRESETS[shiftPreset as keyof typeof PRESETS] ?? PRESETS.default
-    this.cbtmin = originCbtmin
-    const diff = this.signedDifference()
-    this.phase_direction = diff > 0 ? 'delay' : diff < 0 ? 'advance' : 'aligned'
-  }
-
-  signedDifference() {
-    const diff = hoursFromMinutes(subtractTimes(this.destCbtmin, this.cbtmin))
-    let norm = mod(diff + 12, 24) - 12
-    if (norm === -12) norm = 12
-    return norm
-  }
-
-  deltaCbtmin(melatonin: boolean, exercise: boolean, lightDark: boolean, precondition: boolean) {
-    if (melatonin || exercise || lightDark) {
-      if (Math.abs(this.signedDifference()) > 3.0) {
-        return precondition ? 1.0 : 1.5
-      }
-      return precondition ? 1.0 : 1.5
-    }
-    if (Math.abs(this.signedDifference()) > 3.0) {
-      return precondition ? 0.0 : 1.0
-    }
-    return precondition ? 0.0 : 1.0
-  }
-
-  static fromSleep(
-    originSleepStart: number,
-    originSleepEnd: number,
-    destSleepStart: number,
-    destSleepEnd: number,
-    shiftPreset = 'default',
-  ) {
-    const originCbtmin = sumTimeDelta(originSleepEnd, -3)
-    const destCbtmin = sumTimeDelta(destSleepEnd, -3)
-    return new CBTmin(originCbtmin, destCbtmin, shiftPreset)
-  }
-
-  optimalMelatoninTime() {
-    return this.phase_direction === 'advance'
-      ? this.presets.melatonin_advance
-      : this.presets.melatonin_delay
-  }
-
-  optimalExerciseWindow() {
-    return this.phase_direction === 'advance'
-      ? this.presets.exercise_advance
-      : this.presets.exercise_delay
-  }
-
-  optimalLightWindow() {
-    return this.phase_direction === 'advance'
-      ? this.presets.light_advance
-      : this.presets.light_delay
-  }
-
-  optimalDarkWindow() {
-    return this.phase_direction === 'advance'
-      ? this.presets.dark_advance
-      : this.presets.dark_delay
-  }
-
-  nextCbtmin(
-    time: Date,
-    options: {
-      noInterventionWindow?: Interval | null
-      melatonin?: boolean
-      exercise?: boolean
-      light?: boolean
-      dark?: boolean
-      precondition?: boolean
-      skipShift?: boolean
-    } = {},
-  ): CBTEntry {
-    const {
-      noInterventionWindow = null,
-      melatonin = true,
-      exercise = true,
-      light = true,
-      dark = true,
-      precondition = true,
-      skipShift = false,
-    } = options
-
-    let nextCbtmin = combineDateMinutes(time, this.cbtmin)
-    if (nextCbtmin <= time) {
-      nextCbtmin = addDays(nextCbtmin, 1)
-    }
-    const lastCbtmin = addDays(nextCbtmin, -1)
-
-    const optimalMelatonin = addHours(
-      lastCbtmin,
-      this.optimalMelatoninTime() + (this.phase_direction === 'advance' ? 24 : 0),
-    )
-    const exerciseWindow = this.optimalExerciseWindow()
-    const optimalExercise: [Date, Date] = [
-      addHours(lastCbtmin, exerciseWindow[0]),
-      addHours(lastCbtmin, exerciseWindow[1]),
-    ]
-    const lightWindow = this.optimalLightWindow()
-    const optimalLight: [Date, Date] = [
-      addHours(lastCbtmin, lightWindow[0]),
-      addHours(lastCbtmin, lightWindow[1]),
-    ]
-    const darkWindow = this.optimalDarkWindow()
-    const optimalDark: [Date, Date] = [
-      addHours(lastCbtmin, darkWindow[0]),
-      addHours(lastCbtmin, darkWindow[1]),
-    ]
-
-    const window = noInterventionWindow
-    const usedMelatonin = window && isInsideInterval(optimalMelatonin, window) ? false : melatonin
-    const usedExercise = window && intersectionHours(optimalExercise, window) > 0 ? false : exercise
-    const usedLight = window && intersectionHours(optimalLight, window) > 0 ? false : light
-    const usedDark = window && intersectionHours(optimalDark, window) > 0 ? false : dark
-
-    let effectiveLight = usedLight
-    let effectiveDark = usedDark
-    let effectiveMelatonin = usedMelatonin
-    let effectiveExercise = usedExercise
-
-    if (Math.abs(this.signedDifference()) < 3.0) {
-      effectiveLight = false
-      effectiveDark = false
-      effectiveMelatonin = false
-      effectiveExercise = false
-    }
-
-    let cbtminDelta = Math.max(
-      this.deltaCbtmin(effectiveMelatonin, effectiveExercise, effectiveLight || effectiveDark, precondition),
-      0,
-    )
-
-    if (cbtminDelta > Math.abs(this.signedDifference())) {
-      cbtminDelta = Math.abs(this.signedDifference())
-    }
-
-    if (
-      window &&
-      intersectionHours([addHours(nextCbtmin, -8), nextCbtmin], window) > 0
-    ) {
-      cbtminDelta = 0
-    }
-
-    if (cbtminDelta === 0 || this.phase_direction === 'aligned' || skipShift) {
-      return [
-        nextCbtmin,
-        [
-          [false, optimalMelatonin],
-          [false, optimalExercise],
-          [false, optimalLight],
-          [false, optimalDark],
-        ],
-      ]
-    }
-
-    const directionSign = this.phase_direction === 'delay' ? 1 : -1
-    this.cbtmin = sumTimeDelta(this.cbtmin, cbtminDelta * directionSign)
-    nextCbtmin = addHours(nextCbtmin, cbtminDelta * directionSign)
-
-    const interventions: InterventionTuple = [
-      [effectiveMelatonin, optimalMelatonin],
-      [effectiveExercise, optimalExercise],
-      [effectiveLight, optimalLight],
-      [effectiveDark, optimalDark],
-    ]
-
-    return [nextCbtmin, interventions]
-  }
-}
+const buildEvent = (
+  event: JetLagEvent['event'],
+  start: Date,
+  end: Date | null,
+  flags: {
+    is_cbtmin?: boolean
+    is_melatonin?: boolean
+    is_light?: boolean
+    is_dark?: boolean
+    is_exercise?: boolean
+    is_sleep?: boolean
+    is_travel?: boolean
+  },
+  meta: { phase_direction: string; signed_initial_diff_hours: number },
+): JetLagEvent => ({
+  event,
+  start: toIso(start),
+  end: end ? toIso(end) : null,
+  is_cbtmin: Boolean(flags.is_cbtmin),
+  is_melatonin: Boolean(flags.is_melatonin),
+  is_light: Boolean(flags.is_light),
+  is_dark: Boolean(flags.is_dark),
+  is_exercise: Boolean(flags.is_exercise),
+  is_sleep: Boolean(flags.is_sleep),
+  is_travel: Boolean(flags.is_travel),
+  day_index: null,
+  phase_direction: meta.phase_direction,
+  signed_initial_diff_hours: meta.signed_initial_diff_hours,
+})
 
 export const createJetLagTimetable = (inputs: JetLagInputs): JetLagEvent[] => {
+  // 1) Normalize all inputs into UTC minutes or UTC datetimes.
   const originSleepStart = parseHHMM(inputs.originSleepStart)
   const originSleepEnd = parseHHMM(inputs.originSleepEnd)
   const destinationSleepStart = parseHHMM(inputs.destSleepStart)
@@ -387,6 +239,7 @@ export const createJetLagTimetable = (inputs: JetLagInputs): JetLagEvent[] => {
     throw new Error(`Travel end is before start: ${travelStartUtc.toISOString()}, ${travelEndUtc.toISOString()}`)
   }
 
+  // 2) Determine when the calculation starts.
   const mode = (inputs.adjustmentStart || 'after_arrival').toLowerCase()
   const allowedAdjustmentModes = new Set([
     'after_arrival',
@@ -410,51 +263,123 @@ export const createJetLagTimetable = (inputs: JetLagInputs): JetLagEvent[] => {
     startOfShift = addHours(addDays(midnightForDatetime(travelStart), -effectivePreDays), -originOffset)
   }
 
-  const cbt = CBTmin.fromSleep(
-    originSleepStartUtc,
-    originSleepEndUtc,
-    destinationSleepStartUtc,
-    destinationSleepEndUtc,
-    'default',
-  )
+  // 3) Compute CBTmin at origin/destination and direction.
+  const originCbtmin = sumTimeDelta(originSleepEndUtc, -3)
+  const destCbtmin = sumTimeDelta(destinationSleepEndUtc, -3)
+  const initialSignedDiff = signedDiffHours(destCbtmin, originCbtmin)
+  const phaseDirection = initialSignedDiff > 0 ? 'delay' : initialSignedDiff < 0 ? 'advance' : 'aligned'
+  const directionSign = phaseDirection === 'delay' ? 1 : -1
 
+  const presets = PRESETS.default
+
+  const optimalMelatoninOffset = phaseDirection === 'advance' ? presets.melatonin_advance : presets.melatonin_delay
+  const optimalExerciseWindow = phaseDirection === 'advance' ? presets.exercise_advance : presets.exercise_delay
+  const optimalLightWindow = phaseDirection === 'advance' ? presets.light_advance : presets.light_delay
+  const optimalDarkWindow = phaseDirection === 'advance' ? presets.dark_advance : presets.dark_delay
+
+  const noInterventionWindow =
+    mode === 'travel_start' || mode === 'precondition_with_travel' ? null : ([travelStartUtc, travelEndUtc] as Interval)
+
+  const buildInterventionSchedule = (lastCbtmin: Date): InterventionSchedule => {
+    const melatoninAt = addHours(lastCbtmin, optimalMelatoninOffset + (phaseDirection === 'advance' ? 24 : 0))
+    const exercise: Interval = [
+      addHours(lastCbtmin, optimalExerciseWindow[0]),
+      addHours(lastCbtmin, optimalExerciseWindow[1]),
+    ]
+    const light: Interval = [
+      addHours(lastCbtmin, optimalLightWindow[0]),
+      addHours(lastCbtmin, optimalLightWindow[1]),
+    ]
+    const dark: Interval = [
+      addHours(lastCbtmin, optimalDarkWindow[0]),
+      addHours(lastCbtmin, optimalDarkWindow[1]),
+    ]
+
+    return {
+      melatonin: { enabled: false, at: melatoninAt },
+      exercise: { enabled: false, window: exercise },
+      light: { enabled: false, window: light },
+      dark: { enabled: false, window: dark },
+    }
+  }
+
+  const applyNoInterventionFilter = (schedule: InterventionSchedule, window: Interval | null) => {
+    if (!window) return schedule
+    return {
+      melatonin: {
+        ...schedule.melatonin,
+        enabled: schedule.melatonin.enabled && !isInsideInterval(schedule.melatonin.at, window),
+      },
+      exercise: {
+        ...schedule.exercise,
+        enabled: schedule.exercise.enabled && intersectionHours(schedule.exercise.window, window) === 0,
+      },
+      light: {
+        ...schedule.light,
+        enabled: schedule.light.enabled && intersectionHours(schedule.light.window, window) === 0,
+      },
+      dark: {
+        ...schedule.dark,
+        enabled: schedule.dark.enabled && intersectionHours(schedule.dark.window, window) === 0,
+      },
+    }
+  }
+
+  const applySmallDiffRule = (schedule: InterventionSchedule, diffHours: number) => {
+    if (Math.abs(diffHours) >= 3.0) return schedule
+    return {
+      melatonin: { ...schedule.melatonin, enabled: false },
+      exercise: { ...schedule.exercise, enabled: false },
+      light: { ...schedule.light, enabled: false },
+      dark: { ...schedule.dark, enabled: false },
+    }
+  }
+
+  const computeDelta = (
+    schedule: InterventionSchedule,
+    diffHours: number,
+    precondition: boolean,
+    nextCbtmin: Date,
+  ) => {
+    if (phaseDirection === 'aligned') return 0
+
+    const anyIntervention =
+      schedule.melatonin.enabled || schedule.exercise.enabled || schedule.light.enabled || schedule.dark.enabled
+
+    let delta = anyIntervention ? (precondition ? 1.0 : 1.5) : precondition ? 0.0 : 1.0
+    delta = Math.min(delta, Math.abs(diffHours))
+
+    if (noInterventionWindow && intersectionHours([addHours(nextCbtmin, -8), nextCbtmin], noInterventionWindow) > 0) {
+      delta = 0
+    }
+
+    return delta
+  }
+
+  const nextCbtTime = (cursor: Date, cbtMinutes: number) => {
+    let next = combineDateMinutes(cursor, cbtMinutes)
+    if (next <= cursor) next = addDays(next, 1)
+    return next
+  }
+
+  // 4) Determine the first CBTmin.
   const numExtraBeforeDays = 2
   const numExtraAfterDays = 2
-
-  const midnightStartOfCalculations = midnightForDatetime(
-    addDays(travelStartUtc, -(effectivePreDays + numExtraBeforeDays)),
-  )
+  const midnightStart = midnightForDatetime(addDays(travelStartUtc, -(effectivePreDays + numExtraBeforeDays)))
 
   const cbtEntries: CBTEntry[] = []
-  const noInterventionWindow =
-    mode === 'travel_start' || mode === 'precondition_with_travel'
-      ? null
-      : ([travelStartUtc, travelEndUtc] as Interval)
+  let currentCbtMinutes = originCbtmin
+  let timeCursor = nextCbtTime(midnightStart, currentCbtMinutes)
 
-  const [firstCbtmin] = cbt.nextCbtmin(midnightStartOfCalculations, {
-    noInterventionWindow,
-    melatonin: inputs.useMelatonin,
-    exercise: inputs.useExercise,
-    light: inputs.useLightDark,
-    dark: inputs.useLightDark,
-    precondition: false,
-    skipShift: true,
+  cbtEntries.push({
+    cbtmin: timeCursor,
+    interventions: buildInterventionSchedule(addDays(timeCursor, -1)),
   })
 
-  cbtEntries.push([
-    firstCbtmin,
-    [
-      [false, firstCbtmin],
-      [false, [firstCbtmin, firstCbtmin]],
-      [false, [firstCbtmin, firstCbtmin]],
-      [false, [firstCbtmin, firstCbtmin]],
-    ],
-  ])
-
-  let timeCursor = firstCbtmin
+  // 5) Iterate CBTmin shifts and schedule interventions until aligned.
   let extraDays = 0
-  while (Math.abs(cbt.signedDifference()) > EPSILON || extraDays < numExtraAfterDays) {
-    if (Math.abs(cbt.signedDifference()) < EPSILON) {
+  while (Math.abs(signedDiffHours(destCbtmin, currentCbtMinutes)) > EPSILON || extraDays < numExtraAfterDays) {
+    if (Math.abs(signedDiffHours(destCbtmin, currentCbtMinutes)) <= EPSILON) {
       extraDays += 1
     }
 
@@ -463,27 +388,39 @@ export const createJetLagTimetable = (inputs: JetLagInputs): JetLagEvent[] => {
       timeCursor > startOfShift &&
       timeCursor < travelStartUtc
 
-    const [nextCbt, interventions] = cbt.nextCbtmin(timeCursor, {
-      noInterventionWindow,
-      melatonin: inputs.useMelatonin,
-      exercise: inputs.useExercise,
-      light: inputs.useLightDark,
-      dark: inputs.useLightDark,
-      precondition: isPrecondition,
-      skipShift: timeCursor < startOfShift,
-    })
+    const nextCbt = nextCbtTime(timeCursor, currentCbtMinutes)
+    let schedule = buildInterventionSchedule(addDays(nextCbt, -1))
+    schedule = {
+      melatonin: { ...schedule.melatonin, enabled: inputs.useMelatonin },
+      exercise: { ...schedule.exercise, enabled: inputs.useExercise },
+      light: { ...schedule.light, enabled: inputs.useLightDark },
+      dark: { ...schedule.dark, enabled: inputs.useLightDark },
+    }
 
-    cbtEntries.push([nextCbt, interventions])
-    timeCursor = nextCbt
+    const diffHours = signedDiffHours(destCbtmin, currentCbtMinutes)
+    schedule = applyNoInterventionFilter(schedule, noInterventionWindow)
+    schedule = applySmallDiffRule(schedule, diffHours)
+
+    let delta = computeDelta(schedule, diffHours, isPrecondition, nextCbt)
+    if (timeCursor < startOfShift) delta = 0
+
+    if (delta > 0) {
+      currentCbtMinutes = sumTimeDelta(currentCbtMinutes, delta * directionSign)
+    }
+
+    const shiftedCbt = addHours(nextCbt, delta * directionSign)
+    timeCursor = shiftedCbt
+
+    cbtEntries.push({ cbtmin: shiftedCbt, interventions: schedule })
   }
 
-  const midnightEndOfCalculations = midnightForDatetime(addDays(cbtEntries[cbtEntries.length - 1][0], 1))
-
+  // Build sleep windows between calculation start and end.
+  const midnightEnd = midnightForDatetime(addDays(cbtEntries[cbtEntries.length - 1].cbtmin, 1))
   const sleepWindows: Interval[] = []
-  let sleepTime = midnightStartOfCalculations
+  let sleepTime = midnightStart
   let sleepDest = false
 
-  while (sleepTime < midnightEndOfCalculations) {
+  while (sleepTime < midnightEnd) {
     if (!sleepDest) {
       const [s, e] = nextInterval(sleepTime, [originSleepStartUtc, originSleepEndUtc], [
         travelStartUtc,
@@ -526,121 +463,96 @@ export const createJetLagTimetable = (inputs: JetLagInputs): JetLagEvent[] => {
     sleepTime = e
   }
 
-  const interventionEvents: JetLagEvent[] = []
-
-  const signedDiff = cbt.signedDifference()
-  const phaseDirection = cbt.phase_direction
-
-  const addTrimmedIntervals = (
-    event: 'exercise' | 'light' | 'dark',
-    baseInterval: Interval,
-  ) => {
-    const trimmed = subtractIntervals(baseInterval, sleepWindows)
-    for (const [start, end] of trimmed) {
-      interventionEvents.push({
-        event,
-        start: toIso(start),
-        end: toIso(end),
-        is_cbtmin: false,
-        is_melatonin: false,
-        is_light: event === 'light',
-        is_dark: event === 'dark',
-        is_exercise: event === 'exercise',
-        is_sleep: false,
-        is_travel: false,
-        day_index: null,
-        phase_direction: phaseDirection,
-        signed_initial_diff_hours: signedDiff,
-      })
-    }
-  }
-
-  for (const entry of cbtEntries) {
-    const [cbtTime, interventions] = entry
-    interventionEvents.push({
-      event: 'cbtmin',
-      start: toIso(cbtTime),
-      end: null,
-      is_cbtmin: true,
-      is_melatonin: false,
-      is_light: false,
-      is_dark: false,
-      is_exercise: false,
-      is_sleep: false,
-      is_travel: false,
-      day_index: null,
-      phase_direction: phaseDirection,
-      signed_initial_diff_hours: signedDiff,
-    })
-
-    if (interventions[0][0]) {
-      interventionEvents.push({
-        event: 'melatonin',
-        start: toIso(interventions[0][1]),
-        end: null,
-        is_cbtmin: false,
-        is_melatonin: true,
-        is_light: false,
-        is_dark: false,
-        is_exercise: false,
-        is_sleep: false,
-        is_travel: false,
-        day_index: null,
-        phase_direction: phaseDirection,
-        signed_initial_diff_hours: signedDiff,
-      })
-    }
-
-    if (interventions[1][0]) {
-      addTrimmedIntervals('exercise', interventions[1][1])
-    }
-
-    if (interventions[2][0]) {
-      addTrimmedIntervals('light', interventions[2][1])
-    }
-
-    if (interventions[3][0]) {
-      addTrimmedIntervals('dark', interventions[3][1])
-    }
-  }
-
+  // 6) Combine into a final events list.
   const events: JetLagEvent[] = []
 
   for (const [start, end] of sleepWindows) {
-    events.push({
-      event: 'sleep',
-      start: toIso(start),
-      end: toIso(end),
-      is_cbtmin: false,
-      is_melatonin: false,
-      is_light: false,
-      is_dark: false,
-      is_exercise: false,
-      is_sleep: true,
-      is_travel: false,
-      day_index: null,
-      phase_direction: phaseDirection,
-      signed_initial_diff_hours: signedDiff,
-    })
+    events.push(
+      buildEvent(
+        'sleep',
+        start,
+        end,
+        { is_sleep: true },
+        { phase_direction: phaseDirection, signed_initial_diff_hours: initialSignedDiff },
+      ),
+    )
   }
 
-  events.push({
-    event: 'travel',
-    start: toIso(travelStartUtc),
-    end: toIso(travelEndUtc),
-    is_cbtmin: false,
-    is_melatonin: false,
-    is_light: false,
-    is_dark: false,
-    is_exercise: false,
-    is_sleep: false,
-    is_travel: true,
-    day_index: null,
-    phase_direction: phaseDirection,
-    signed_initial_diff_hours: signedDiff,
-  })
+  events.push(
+    buildEvent(
+      'travel',
+      travelStartUtc,
+      travelEndUtc,
+      { is_travel: true },
+      { phase_direction: phaseDirection, signed_initial_diff_hours: initialSignedDiff },
+    ),
+  )
 
-  events.push(...interventionEvents)
+  for (const entry of cbtEntries) {
+    events.push(
+      buildEvent(
+        'cbtmin',
+        entry.cbtmin,
+        null,
+        { is_cbtmin: true },
+        { phase_direction: phaseDirection, signed_initial_diff_hours: initialSignedDiff },
+      ),
+    )
+
+    if (entry.interventions.melatonin.enabled) {
+      events.push(
+        buildEvent(
+          'melatonin',
+          entry.interventions.melatonin.at,
+          null,
+          { is_melatonin: true },
+          { phase_direction: phaseDirection, signed_initial_diff_hours: initialSignedDiff },
+        ),
+      )
+    }
+
+    if (entry.interventions.exercise.enabled) {
+      for (const [start, end] of subtractIntervals(entry.interventions.exercise.window, sleepWindows)) {
+        events.push(
+          buildEvent(
+            'exercise',
+            start,
+            end,
+            { is_exercise: true },
+            { phase_direction: phaseDirection, signed_initial_diff_hours: initialSignedDiff },
+          ),
+        )
+      }
+    }
+
+    if (entry.interventions.light.enabled) {
+      for (const [start, end] of subtractIntervals(entry.interventions.light.window, sleepWindows)) {
+        events.push(
+          buildEvent(
+            'light',
+            start,
+            end,
+            { is_light: true },
+            { phase_direction: phaseDirection, signed_initial_diff_hours: initialSignedDiff },
+          ),
+        )
+      }
+    }
+
+    if (entry.interventions.dark.enabled) {
+      for (const [start, end] of subtractIntervals(entry.interventions.dark.window, sleepWindows)) {
+        events.push(
+          buildEvent(
+            'dark',
+            start,
+            end,
+            { is_dark: true },
+            { phase_direction: phaseDirection, signed_initial_diff_hours: initialSignedDiff },
+          ),
+        )
+      }
+    }
+  }
 
   events.sort((a, b) => a.start.localeCompare(b.start))
   return events
