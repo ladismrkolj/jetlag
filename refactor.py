@@ -81,9 +81,16 @@ def plan_circadian(
             rule_windows_processed.append(rule_window_copy)
             current_date += datetime.timedelta(days=1)
 
+
+    # iteration algorithm
     for i in range(1, len(cbtmin_waypoints)):
         cbtmin_target = cbtmin_waypoints[i]
         current_cbtmin = real_cbt_entries[-1] + datetime.timedelta(days=1) # we know that the next cbt min is exactly 24h later, but we will shift it later.
+
+        # extract current sleep from the rule_windows - we need this for interventions that are based on sleep or modify sleep
+
+        # extract fixed events for the relevant 24h window (current cbtmin -24h)
+        # these events should be light, dark, exercise, melatonin, sleep (calculate shift from normal sleep or previous day)
 
         # the logic is that interventions that shift current cbtmin occur before it. even if prc windows is after, that means we shift it 24h to the one before - already in the settings
         for intervention in enabled_interventions:
@@ -107,3 +114,11 @@ def plan_circadian(
                 else: # delay
                     intervention_start = last_sleep_window['end'] + datetime.timedelta(hours=intervention_settings['delay_start_h'])
                     intervention_end = last_sleep_window['end'] + datetime.timedelta(hours=intervention_settings['delay_stop_h'])
+
+        # move/shorten/remove interventions based on filter windows
+
+        # save them to events schedule
+
+        # calculate next cbtmin based on a external function
+
+        # save cbtmin to the list
