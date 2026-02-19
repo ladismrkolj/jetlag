@@ -9,9 +9,9 @@ def plan_circadian(
     fixed_events, # list of datetime events (UTC) which are fixed
     settings, # caps/limits, PRC models, suboptimality functions, (snapping/search parameters), defaults.
 ):
-    real_cbt_entries: List[datetime.datetime] = []
+    predicted_cbt_entries: List[datetime.datetime] = []
 
-    real_cbt_entries.append(cbtmin_waypoints[0]) # first cbtmin is the one we start, so we cannot already shift this one
+    predicted_cbt_entries.append(cbtmin_waypoints[0]) # first cbtmin is the one we start, so we cannot already shift this one
 
     rule_windows_processed: List[Dict] = [] # dict keys: start, end, type, interventions_filter - same name as in settings dict
     # the algoritm works in iterations. It moves time to the next cbt min and looks at what interventions 
@@ -85,8 +85,9 @@ def plan_circadian(
     # iteration algorithm
     for i in range(1, len(cbtmin_waypoints)):
         cbtmin_target = cbtmin_waypoints[i]
-        current_cbtmin = real_cbt_entries[-1] + datetime.timedelta(days=1) # we know that the next cbt min is exactly 24h later, but we will shift it later.
+        current_cbtmin = predicted_cbt_entries[-1] + datetime.timedelta(days=1) # we know that the next cbt min is exactly 24h later, but we will shift it later.
 
+        cbtmin_diff = (cbtmin_target - current_cbtmin).total_seconds() / 3600.0 # in hours float
         # extract current sleep from the rule_windows - we need this for interventions that are based on sleep or modify sleep
 
         # extract fixed events for the relevant 24h window (current cbtmin -24h)
