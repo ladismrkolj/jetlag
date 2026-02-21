@@ -1,5 +1,5 @@
 import datetime
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 light_advance_start_h = 0
 light_advance_stop_h = 6
@@ -13,9 +13,6 @@ melatonin_advance_h = 12.5 #check
 melatonin_delay_h = 20 #check
 max_daily_advance_h = 1.5
 max_daily_delay_h = 1.5
-
-import datetime
-from typing import Dict, List, Optional
 
 def apply_filters(
     start: datetime.datetime,
