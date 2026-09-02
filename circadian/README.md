@@ -15,8 +15,11 @@ also generalizes past a single origin→destination trip to an arbitrary sequenc
 schedule segments, which covers multi-leg trips and non-travel scenarios like preparing
 a worker for a night shift.
 
-See [`docs/circadian-model.md`](docs/circadian-model.md) for the full math, citations,
-and a guide to adding a new stimulus module.
+**→ See [`docs/whitepaper.md`](docs/whitepaper.md)** for the full specification: the
+core equation and its derivation, the numerical algorithms, every factor the model
+admits with measured values and equations from the primary literature, the three
+published limit-cycle models reproduced with their exact coefficients, and the
+algorithm for calibrating the model against published phase response curves.
 
 ## Relationship to the rest of the repo
 
